@@ -5,11 +5,23 @@ import { productSchema } from "@/lib/validations";
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
 
+// Verificar se estamos em ambiente de build
+const isBuildTime =
+  process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
+    // Verificar se estamos em build time
+    if (isBuildTime) {
+      return NextResponse.json(
+        { error: "Serviço indisponível durante build" },
+        { status: 503 }
+      );
+    }
+
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(
@@ -71,6 +83,14 @@ export async function PUT(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Verificar se estamos em build time
+    if (isBuildTime) {
+      return NextResponse.json(
+        { error: "Serviço indisponível durante build" },
+        { status: 503 }
+      );
+    }
+
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(
@@ -147,6 +167,14 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
+    // Verificar se estamos em build time
+    if (isBuildTime) {
+      return NextResponse.json(
+        { error: "Serviço indisponível durante build" },
+        { status: 503 }
+      );
+    }
+
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(

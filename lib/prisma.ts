@@ -4,13 +4,14 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-// Verificar se estamos em ambiente de build
+// Verificar se estamos em ambiente de build ou se não há DATABASE_URL
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
+const shouldSkipPrisma = isBuildTime || !process.env.DATABASE_URL;
 
 export const prisma: PrismaClient | undefined =
   globalForPrisma.prisma ??
-  (isBuildTime
+  (shouldSkipPrisma
     ? undefined
     : new PrismaClient({
         log:
@@ -19,7 +20,8 @@ export const prisma: PrismaClient | undefined =
             : ["error"],
       }));
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== "production" && !shouldSkipPrisma)
+  globalForPrisma.prisma = prisma;
 
 // Função helper para testar conexão
 export async function testConnection() {
