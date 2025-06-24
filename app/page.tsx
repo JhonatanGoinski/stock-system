@@ -36,6 +36,9 @@ import {
   Users,
 } from "lucide-react";
 import { DashboardStats } from "@/components/dashboard-stats";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useIsMobile } from "@/hooks/use-is-mobile";
+import { Drawer, DrawerContent } from "@/components/ui/drawer";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -71,6 +74,7 @@ export default function Home() {
 }
 
 function DashboardContent() {
+  const { data: session, status } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<SaleWithDetails[]>([]);
@@ -81,6 +85,7 @@ function DashboardContent() {
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("dashboard");
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     fetchProducts();
@@ -674,33 +679,134 @@ function DashboardContent() {
         </div>
 
         {/* Forms */}
-        {showProductForm && (
-          <ProductForm
-            product={editingProduct || undefined}
-            onSuccess={handleProductFormSuccess}
-            onCancel={() => {
-              setShowProductForm(false);
-              setEditingProduct(null);
+        {isMobile ? (
+          <Drawer
+            open={showProductForm}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowProductForm(false);
+                setEditingProduct(null);
+              }
             }}
-          />
+          >
+            <DrawerContent>
+              {showProductForm && (
+                <ProductForm
+                  product={editingProduct || undefined}
+                  onSuccess={handleProductFormSuccess}
+                  onCancel={() => {
+                    setShowProductForm(false);
+                    setEditingProduct(null);
+                  }}
+                />
+              )}
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog
+            open={showProductForm}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowProductForm(false);
+                setEditingProduct(null);
+              }
+            }}
+          >
+            <DialogContent>
+              {showProductForm && (
+                <ProductForm
+                  product={editingProduct || undefined}
+                  onSuccess={handleProductFormSuccess}
+                  onCancel={() => {
+                    setShowProductForm(false);
+                    setEditingProduct(null);
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         )}
 
-        {showCustomerForm && (
-          <CustomerForm
-            customer={editingCustomer || undefined}
-            onSuccess={handleCustomerFormSuccess}
-            onCancel={() => {
-              setShowCustomerForm(false);
-              setEditingCustomer(null);
+        {isMobile ? (
+          <Drawer
+            open={showCustomerForm}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowCustomerForm(false);
+                setEditingCustomer(null);
+              }
             }}
-          />
+          >
+            <DrawerContent>
+              {showCustomerForm && (
+                <CustomerForm
+                  customer={editingCustomer || undefined}
+                  onSuccess={handleCustomerFormSuccess}
+                  onCancel={() => {
+                    setShowCustomerForm(false);
+                    setEditingCustomer(null);
+                  }}
+                />
+              )}
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog
+            open={showCustomerForm}
+            onOpenChange={(open) => {
+              if (!open) {
+                setShowCustomerForm(false);
+                setEditingCustomer(null);
+              }
+            }}
+          >
+            <DialogContent>
+              {showCustomerForm && (
+                <CustomerForm
+                  customer={editingCustomer || undefined}
+                  onSuccess={handleCustomerFormSuccess}
+                  onCancel={() => {
+                    setShowCustomerForm(false);
+                    setEditingCustomer(null);
+                  }}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         )}
 
-        {showSaleForm && (
-          <SaleForm
-            onSuccess={handleSaleFormSuccess}
-            onCancel={() => setShowSaleForm(false)}
-          />
+        {isMobile ? (
+          <Drawer
+            open={showSaleForm}
+            onOpenChange={(open) => {
+              if (!open) setShowSaleForm(false);
+            }}
+          >
+            <DrawerContent>
+              {showSaleForm && (
+                <SaleForm
+                  onSuccess={handleSaleFormSuccess}
+                  onCancel={() => setShowSaleForm(false)}
+                />
+              )}
+            </DrawerContent>
+          </Drawer>
+        ) : (
+          <Dialog
+            open={showSaleForm}
+            onOpenChange={(open) => {
+              if (!open) setShowSaleForm(false);
+            }}
+          >
+            <DialogContent>
+              {showSaleForm && (
+                <SaleForm
+                  onSuccess={handleSaleFormSuccess}
+                  onCancel={() => setShowSaleForm(false)}
+                />
+              )}
+            </DialogContent>
+          </Dialog>
         )}
       </div>
     </AuthGuard>
