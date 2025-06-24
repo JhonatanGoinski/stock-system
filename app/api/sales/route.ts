@@ -4,6 +4,14 @@ import { saleSchema } from "@/lib/validations";
 
 export async function GET() {
   try {
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
     const sales = await prisma.sale.findMany({
       include: {
         product: {
@@ -51,6 +59,22 @@ export async function GET() {
     return NextResponse.json(formattedSales);
   } catch (error) {
     console.error("Erro ao buscar vendas:", error);
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: "Erro interno do servidor" },
       { status: 500 }
@@ -60,6 +84,14 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
     const body = await request.json();
     const validatedData = saleSchema.parse(body);
 
@@ -130,12 +162,32 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error("Erro ao registrar venda:", error);
-    if (error instanceof Error && error.name === "ZodError") {
-      return NextResponse.json(
-        { error: "Dados inválidos", details: (error as any).errors },
-        { status: 400 }
-      );
+
+    if (error && typeof error === "object" && "name" in error) {
+      const zodError = error as { name: string };
+      if (zodError.name === "ZodError") {
+        return NextResponse.json(
+          { error: "Dados inválidos", details: (error as any).errors },
+          { status: 400 }
+        );
+      }
     }
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
     return NextResponse.json(
       { error: "Erro ao registrar venda" },
       { status: 500 }

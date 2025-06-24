@@ -1,11 +1,19 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { customerSchema } from "@/lib/validations"
+import { type NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { customerSchema } from "@/lib/validations";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const active = searchParams.get("active")
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
+    const { searchParams } = new URL(request.url);
+    const active = searchParams.get("active");
 
     const customers = await prisma.customer.findMany({
       where: active === "true" ? { isActive: true } : undefined,
@@ -15,25 +23,52 @@ export async function GET(request: NextRequest) {
           select: { sales: true },
         },
       },
-    })
+    });
 
     const formattedCustomers = customers.map((customer) => ({
       ...customer,
       salesCount: customer._count.sales,
       _count: undefined,
-    }))
+    }));
 
-    return NextResponse.json(formattedCustomers)
+    return NextResponse.json(formattedCustomers);
   } catch (error) {
-    console.error("Erro ao buscar clientes:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    console.error("Erro ao buscar clientes:", error);
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const validatedData = customerSchema.parse(body)
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
+    const body = await request.json();
+    const validatedData = customerSchema.parse(body);
 
     const customer = await prisma.customer.create({
       data: {
@@ -48,14 +83,40 @@ export async function POST(request: NextRequest) {
         notes: validatedData.notes || null,
         isActive: validatedData.is_active,
       },
-    })
+    });
 
-    return NextResponse.json(customer, { status: 201 })
+    return NextResponse.json(customer, { status: 201 });
   } catch (error) {
-    console.error("Erro ao criar cliente:", error)
-    if (error.name === "ZodError") {
-      return NextResponse.json({ error: "Dados inválidos", details: error.errors }, { status: 400 })
+    console.error("Erro ao criar cliente:", error);
+
+    if (error && typeof error === "object" && "name" in error) {
+      const zodError = error as { name: string };
+      if (zodError.name === "ZodError") {
+        return NextResponse.json(
+          { error: "Dados inválidos", details: (error as any).errors },
+          { status: 400 }
+        );
+      }
     }
-    return NextResponse.json({ error: "Erro ao criar cliente" }, { status: 500 })
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Erro ao criar cliente" },
+      { status: 500 }
+    );
   }
 }

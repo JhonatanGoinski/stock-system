@@ -1,12 +1,23 @@
-import { type NextRequest, NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
-import { customerSchema } from "@/lib/validations"
+import { type NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { customerSchema } from "@/lib/validations";
 
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const id = Number.parseInt(params.id)
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
+    const id = Number.parseInt(params.id);
     if (isNaN(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     const customer = await prisma.customer.findUnique({
@@ -31,14 +42,23 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
           },
         },
       },
-    })
+    });
 
     if (!customer) {
-      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+      return NextResponse.json(
+        { error: "Cliente não encontrado" },
+        { status: 404 }
+      );
     }
 
-    const totalSpent = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
-    const totalItems = customer.sales.reduce((sum, sale) => sum + sale.quantity, 0)
+    const totalSpent = customer.sales.reduce(
+      (sum, sale) => sum + Number(sale.totalAmount),
+      0
+    );
+    const totalItems = customer.sales.reduce(
+      (sum, sale) => sum + sale.quantity,
+      0
+    );
 
     const formattedCustomer = {
       ...customer,
@@ -52,24 +72,54 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
       totalItems,
       salesCount: customer._count.sales,
       _count: undefined,
+    };
+
+    return NextResponse.json(formattedCustomer);
+  } catch (error) {
+    console.error("Erro ao buscar cliente:", error);
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
     }
 
-    return NextResponse.json(formattedCustomer)
-  } catch (error) {
-    console.error("Erro ao buscar cliente:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }
 
-export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const id = Number.parseInt(params.id)
-    if (isNaN(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
     }
 
-    const body = await request.json()
-    const validatedData = customerSchema.parse(body)
+    const id = Number.parseInt(params.id);
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const validatedData = customerSchema.parse(body);
 
     const customer = await prisma.customer.update({
       where: { id },
@@ -85,43 +135,101 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         notes: validatedData.notes || null,
         isActive: validatedData.is_active,
       },
-    })
+    });
 
-    return NextResponse.json(customer)
+    return NextResponse.json(customer);
   } catch (error) {
-    console.error("Erro ao atualizar cliente:", error)
-    if (error.name === "ZodError") {
-      return NextResponse.json({ error: "Dados inválidos", details: error.errors }, { status: 400 })
+    console.error("Erro ao atualizar cliente:", error);
+
+    if (error && typeof error === "object" && "name" in error) {
+      const zodError = error as { name: string };
+      if (zodError.name === "ZodError") {
+        return NextResponse.json(
+          { error: "Dados inválidos", details: (error as any).errors },
+          { status: 400 }
+        );
+      }
     }
-    return NextResponse.json({ error: "Erro ao atualizar cliente" }, { status: 500 })
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Erro ao atualizar cliente" },
+      { status: 500 }
+    );
   }
 }
 
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    const id = Number.parseInt(params.id)
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
+    const id = Number.parseInt(params.id);
     if (isNaN(id)) {
-      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
     const salesCount = await prisma.sale.count({
       where: { customerId: id },
-    })
+    });
 
     if (salesCount > 0) {
       await prisma.customer.update({
         where: { id },
         data: { isActive: false },
-      })
-      return NextResponse.json({ message: "Cliente desativado com sucesso (possui vendas)" })
+      });
+      return NextResponse.json({
+        message: "Cliente desativado com sucesso (possui vendas)",
+      });
     } else {
       await prisma.customer.delete({
         where: { id },
-      })
-      return NextResponse.json({ message: "Cliente deletado com sucesso" })
+      });
+      return NextResponse.json({ message: "Cliente deletado com sucesso" });
     }
   } catch (error) {
-    console.error("Erro ao deletar cliente:", error)
-    return NextResponse.json({ error: "Erro ao deletar cliente" }, { status: 500 })
+    console.error("Erro ao deletar cliente:", error);
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
+    }
+
+    return NextResponse.json(
+      { error: "Erro ao deletar cliente" },
+      { status: 500 }
+    );
   }
 }

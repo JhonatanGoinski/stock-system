@@ -1,13 +1,25 @@
-import { NextResponse } from "next/server"
-import { prisma } from "@/lib/prisma"
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const today = new Date()
-    const startOfToday = new Date(today.getFullYear(), today.getMonth(), today.getDate())
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1)
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000)
+    // Verificar se o Prisma está disponível
+    if (!prisma) {
+      return NextResponse.json(
+        { error: "Serviço indisponível" },
+        { status: 503 }
+      );
+    }
+
+    const today = new Date();
+    const startOfToday = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
     // Vendas de hoje
     const todayRevenue = await prisma.sale.aggregate({
@@ -19,7 +31,7 @@ export async function GET() {
       _sum: {
         totalAmount: true,
       },
-    })
+    });
 
     // Vendas do mês
     const monthRevenue = await prisma.sale.aggregate({
@@ -31,12 +43,12 @@ export async function GET() {
       _sum: {
         totalAmount: true,
       },
-    })
+    });
 
     // Total de clientes ativos
     const totalCustomers = await prisma.customer.count({
       where: { isActive: true },
-    })
+    });
 
     // Produtos mais vendidos (últimos 30 dias)
     const topProducts = await prisma.sale.groupBy({
@@ -56,22 +68,31 @@ export async function GET() {
         },
       },
       take: 5,
-    })
+    });
 
     const topProductsWithDetails = await Promise.all(
+      // O erro "'prisma' is possibly 'undefined'" geralmente ocorre quando o TypeScript não consegue garantir que a variável 'prisma' foi inicializada corretamente.
+      // Certifique-se de que o objeto 'prisma' está sendo importado e inicializado corretamente neste arquivo.
+      // Exemplo de importação correta:
+      // import { prisma } from "@/lib/prisma";
+      // Se já estiver importado, você pode adicionar uma checagem de segurança:
+
       topProducts.map(async (item) => {
+        if (!prisma) {
+          throw new Error("Prisma não está definido.");
+        }
         const product = await prisma.product.findUnique({
           where: { id: item.productId },
           select: { name: true, category: true },
-        })
+        });
         return {
           name: product?.name || "Produto não encontrado",
           category: product?.category || "",
           total_sold: item._sum.quantity || 0,
           revenue: Number(item._sum.totalAmount || 0),
-        }
-      }),
-    )
+        };
+      })
+    );
 
     // Top clientes (últimos 30 dias)
     const topCustomers = await prisma.sale.groupBy({
@@ -94,22 +115,29 @@ export async function GET() {
         },
       },
       take: 5,
-    })
+    });
 
     const topCustomersWithDetails = await Promise.all(
       topCustomers.map(async (item) => {
+        // O erro "'prisma' is possibly 'undefined'" pode ocorrer se o objeto prisma não estiver importado corretamente.
+        // Certifique-se de que o prisma está importado no topo do arquivo:
+        // import { prisma } from "@/lib/prisma";
+        // Se já estiver importado, adicione uma checagem de segurança:
+        if (!prisma) {
+          throw new Error("Prisma não está definido.");
+        }
         const customer = await prisma.customer.findUnique({
           where: { id: item.customerId! },
           select: { name: true, email: true },
-        })
+        });
         return {
           name: customer?.name || "Cliente não encontrado",
           email: customer?.email,
           total_spent: Number(item._sum.totalAmount || 0),
           total_items: item._sum.quantity || 0,
-        }
-      }),
-    )
+        };
+      })
+    );
 
     // Produtos com estoque baixo
     const lowStockProducts = await prisma.product.findMany({
@@ -126,7 +154,7 @@ export async function GET() {
       orderBy: {
         stockQuantity: "asc",
       },
-    })
+    });
 
     // Vendas dos últimos 7 dias
     const dailySales = await prisma.sale.groupBy({
@@ -145,13 +173,13 @@ export async function GET() {
       orderBy: {
         saleDate: "asc",
       },
-    })
+    });
 
     const formattedDailySales = dailySales.map((item) => ({
       date: item.saleDate.toISOString().split("T")[0],
       revenue: Number(item._sum.totalAmount || 0),
       sales_count: item._count.id,
-    }))
+    }));
 
     const dashboardData = {
       todayRevenue: Number(todayRevenue._sum.totalAmount || 0),
@@ -161,11 +189,30 @@ export async function GET() {
       topCustomers: topCustomersWithDetails,
       lowStockProducts,
       dailySales: formattedDailySales,
+    };
+
+    return NextResponse.json(dashboardData);
+  } catch (error) {
+    console.error("Erro ao buscar dados do dashboard:", error);
+
+    // Verificar se é um erro de conexão com o banco
+    if (error && typeof error === "object" && "code" in error) {
+      const prismaError = error as { code: string };
+      if (
+        prismaError.code === "P1001" ||
+        prismaError.code === "P1002" ||
+        prismaError.code === "P1003"
+      ) {
+        return NextResponse.json(
+          { error: "Erro de conexão com o banco de dados" },
+          { status: 503 }
+        );
+      }
     }
 
-    return NextResponse.json(dashboardData)
-  } catch (error) {
-    console.error("Erro ao buscar dados do dashboard:", error)
-    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Erro interno do servidor" },
+      { status: 500 }
+    );
   }
 }
