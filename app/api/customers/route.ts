@@ -4,13 +4,14 @@ import { customerSchema } from "@/lib/validations";
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
 
-// Verificar se estamos em ambiente de build
+// Verificar se estamos em ambiente de build (apenas quando não há DATABASE_URL)
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
 export async function GET(request: NextRequest) {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
+    console.log("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -23,11 +24,14 @@ export async function GET(request: NextRequest) {
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
+      console.log("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
+
+    console.log("✅ Prisma disponível, executando query...");
 
     const { searchParams } = new URL(request.url);
     const active = searchParams.get("active");
@@ -48,9 +52,10 @@ export async function GET(request: NextRequest) {
       _count: undefined,
     }));
 
+    console.log(`✅ ${customers.length} clientes encontrados`);
     return NextResponse.json(formattedCustomers);
   } catch (error) {
-    console.error("Erro ao buscar clientes:", error);
+    console.error("❌ Erro ao buscar clientes:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

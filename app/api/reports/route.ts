@@ -3,13 +3,14 @@ import { type NextRequest, NextResponse } from "next/server";
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
 
-// Verificar se estamos em ambiente de build
+// Verificar se estamos em ambiente de build (apenas quando não há DATABASE_URL)
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
 export async function GET(request: NextRequest) {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
+    console.log("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -22,11 +23,14 @@ export async function GET(request: NextRequest) {
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
+      console.log("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
+
+    console.log("✅ Prisma disponível, executando query...");
 
     const { searchParams } = new URL(request.url);
     const startDate = searchParams.get("startDate");
@@ -120,9 +124,6 @@ export async function GET(request: NextRequest) {
 
     const customerStatsWithDetails = await Promise.all(
       customerStats.map(async (stat) => {
-        if (!prisma) {
-          throw new Error("Prisma não está disponível");
-        }
         const customer = await prisma.customer.findUnique({
           where: { id: stat.customerId! },
           select: {
@@ -161,9 +162,6 @@ export async function GET(request: NextRequest) {
 
     const productStatsWithDetails = await Promise.all(
       productStats.map(async (stat) => {
-        if (!prisma) {
-          throw new Error("Prisma não está disponível");
-        }
         const product = await prisma.product.findUnique({
           where: { id: stat.productId },
           select: { name: true, category: true },
@@ -273,7 +271,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(reportData);
   } catch (error) {
-    console.error("Erro ao gerar relatório:", error);
+    console.error("❌ Erro ao gerar relatório:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

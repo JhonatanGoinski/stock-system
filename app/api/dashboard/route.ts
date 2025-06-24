@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
 
-// Verificar se estamos em ambiente de build
+// Verificar se estamos em ambiente de build (apenas quando não há DATABASE_URL)
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
 export async function GET() {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
+    console.log("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -22,11 +23,14 @@ export async function GET() {
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
+      console.log("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
+
+    console.log("✅ Prisma disponível, executando query...");
 
     const today = new Date();
     const startOfToday = new Date(
@@ -89,9 +93,6 @@ export async function GET() {
 
     const topProductsWithDetails = await Promise.all(
       topProducts.map(async (item) => {
-        if (!prisma) {
-          throw new Error("Prisma não está disponível");
-        }
         const product = await prisma.product.findUnique({
           where: { id: item.productId },
           select: { name: true, category: true },
@@ -130,9 +131,6 @@ export async function GET() {
 
     const topCustomersWithDetails = await Promise.all(
       topCustomers.map(async (item) => {
-        if (!prisma) {
-          throw new Error("Prisma não está disponível");
-        }
         const customer = await prisma.customer.findUnique({
           where: { id: item.customerId! },
           select: { name: true, email: true },
@@ -198,9 +196,10 @@ export async function GET() {
       dailySales: formattedDailySales,
     };
 
+    console.log("✅ Dados do dashboard carregados com sucesso");
     return NextResponse.json(dashboardData);
   } catch (error) {
-    console.error("Erro ao buscar dados do dashboard:", error);
+    console.error("❌ Erro ao carregar dados do dashboard:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

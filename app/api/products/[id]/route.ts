@@ -4,7 +4,7 @@ import { productSchema } from "@/lib/validations";
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
 
-// Verificar se estamos em ambiente de build
+// Verificar se estamos em ambiente de build (apenas quando não há DATABASE_URL)
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
@@ -14,6 +14,7 @@ export async function GET(
 ) {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
+    console.log("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -26,11 +27,14 @@ export async function GET(
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
+      console.log("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
+
+    console.log("✅ Prisma disponível, executando query...");
 
     const id = Number.parseInt(params.id);
     if (isNaN(id)) {
@@ -39,6 +43,26 @@ export async function GET(
 
     const product = await prisma.product.findUnique({
       where: { id },
+      include: {
+        sales: {
+          include: {
+            customer: {
+              select: {
+                name: true,
+                email: true,
+              },
+            },
+          },
+          orderBy: {
+            saleDate: "desc",
+          },
+        },
+        _count: {
+          select: {
+            sales: true,
+          },
+        },
+      },
     });
 
     if (!product) {
@@ -48,15 +72,35 @@ export async function GET(
       );
     }
 
+    const totalRevenue = product.sales.reduce(
+      (sum, sale) => sum + Number(sale.totalAmount),
+      0
+    );
+    const totalQuantity = product.sales.reduce(
+      (sum, sale) => sum + sale.quantity,
+      0
+    );
+
     const formattedProduct = {
       ...product,
       costPrice: Number(product.costPrice),
       salePrice: Number(product.salePrice),
+      sales: product.sales.map((sale) => ({
+        ...sale,
+        unitPrice: Number(sale.unitPrice),
+        totalAmount: Number(sale.totalAmount),
+        discount: Number(sale.discount || 0),
+      })),
+      totalRevenue,
+      totalQuantity,
+      salesCount: product._count.sales,
+      _count: undefined,
     };
 
+    console.log("✅ Produto encontrado:", product.name);
     return NextResponse.json(formattedProduct);
   } catch (error) {
-    console.error("Erro ao buscar produto:", error);
+    console.error("❌ Erro ao buscar produto:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {
@@ -196,11 +240,25 @@ export async function DELETE(
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    await prisma.product.delete({
-      where: { id },
+    const salesCount = await prisma.sale.count({
+      where: { productId: id },
     });
 
-    return NextResponse.json({ message: "Produto deletado com sucesso" });
+    if (salesCount > 0) {
+      await prisma.product.delete({
+        where: { id },
+      });
+      return NextResponse.json({
+        message: "Produto deletado com sucesso",
+      });
+    } else {
+      await prisma.product.delete({
+        where: { id },
+      });
+      return NextResponse.json({
+        message: "Produto deletado com sucesso",
+      });
+    }
   } catch (error) {
     console.error("Erro ao deletar produto:", error);
 
