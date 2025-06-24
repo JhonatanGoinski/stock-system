@@ -1,16 +1,31 @@
 import { NextResponse } from "next/server";
-import { testConnection } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
+// Verificar se estamos em ambiente de build
+const isBuildTime =
+  process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
+
 export async function GET() {
   try {
+    // Se estamos em build time, retornar imediatamente
+    if (isBuildTime) {
+      console.log("🚫 Build time detected, skipping database test");
+      return NextResponse.json({
+        status: "build_time",
+        message: "Teste não disponível durante build",
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     console.log("🧪 Iniciando teste de conexão...");
     console.log(
       "🔍 DATABASE_URL atual:",
       process.env.DATABASE_URL ? "Definida" : "Não definida"
     );
 
+    // Importar Prisma apenas quando não estamos em build
+    const { testConnection } = await import("@/lib/prisma");
     const isConnected = await testConnection();
 
     if (isConnected) {
@@ -28,7 +43,6 @@ export async function GET() {
         const alternativeUrl = originalUrl.replace("-pooler.", ".");
         console.log("🔗 URL alternativa:", alternativeUrl);
 
-        // Aqui você pode testar com a URL alternativa se necessário
         return NextResponse.json(
           {
             status: "error",
