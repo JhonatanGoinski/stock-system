@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { customerSchema } from "@/lib/validations";
 
 // Forçar rota dinâmica para evitar problemas durante o build
@@ -13,15 +12,18 @@ export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // Verificar se estamos em build time
-    if (isBuildTime) {
-      return NextResponse.json(
-        { error: "Serviço indisponível durante build" },
-        { status: 503 }
-      );
-    }
+  // Se estamos em build time, retornar imediatamente
+  if (isBuildTime) {
+    return NextResponse.json(
+      { error: "Serviço indisponível durante build" },
+      { status: 503 }
+    );
+  }
 
+  // Importar Prisma apenas quando não estamos em build
+  const { prisma } = await import("@/lib/prisma");
+
+  try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(
@@ -119,15 +121,18 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // Verificar se estamos em build time
-    if (isBuildTime) {
-      return NextResponse.json(
-        { error: "Serviço indisponível durante build" },
-        { status: 503 }
-      );
-    }
+  // Se estamos em build time, retornar imediatamente
+  if (isBuildTime) {
+    return NextResponse.json(
+      { error: "Serviço indisponível durante build" },
+      { status: 503 }
+    );
+  }
 
+  // Importar Prisma apenas quando não estamos em build
+  const { prisma } = await import("@/lib/prisma");
+
+  try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(
@@ -200,15 +205,18 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  try {
-    // Verificar se estamos em build time
-    if (isBuildTime) {
-      return NextResponse.json(
-        { error: "Serviço indisponível durante build" },
-        { status: 503 }
-      );
-    }
+  // Se estamos em build time, retornar imediatamente
+  if (isBuildTime) {
+    return NextResponse.json(
+      { error: "Serviço indisponível durante build" },
+      { status: 503 }
+    );
+  }
 
+  // Importar Prisma apenas quando não estamos em build
+  const { prisma } = await import("@/lib/prisma");
+
+  try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(

@@ -1,5 +1,4 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -9,15 +8,18 @@ const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
 export async function GET(request: NextRequest) {
-  try {
-    // Verificar se estamos em build time
-    if (isBuildTime) {
-      return NextResponse.json(
-        { error: "Serviço indisponível durante build" },
-        { status: 503 }
-      );
-    }
+  // Se estamos em build time, retornar imediatamente
+  if (isBuildTime) {
+    return NextResponse.json(
+      { error: "Serviço indisponível durante build" },
+      { status: 503 }
+    );
+  }
 
+  // Importar Prisma apenas quando não estamos em build
+  const { prisma } = await import("@/lib/prisma");
+
+  try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
       return NextResponse.json(
