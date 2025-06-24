@@ -1,0 +1,127 @@
+import { type NextRequest, NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { customerSchema } from "@/lib/validations"
+
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
+
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: {
+        sales: {
+          include: {
+            product: {
+              select: {
+                name: true,
+                category: true,
+              },
+            },
+          },
+          orderBy: {
+            saleDate: "desc",
+          },
+        },
+        _count: {
+          select: {
+            sales: true,
+          },
+        },
+      },
+    })
+
+    if (!customer) {
+      return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
+    }
+
+    const totalSpent = customer.sales.reduce((sum, sale) => sum + Number(sale.totalAmount), 0)
+    const totalItems = customer.sales.reduce((sum, sale) => sum + sale.quantity, 0)
+
+    const formattedCustomer = {
+      ...customer,
+      sales: customer.sales.map((sale) => ({
+        ...sale,
+        unitPrice: Number(sale.unitPrice),
+        totalAmount: Number(sale.totalAmount),
+        discount: Number(sale.discount || 0),
+      })),
+      totalSpent,
+      totalItems,
+      salesCount: customer._count.sales,
+      _count: undefined,
+    }
+
+    return NextResponse.json(formattedCustomer)
+  } catch (error) {
+    console.error("Erro ao buscar cliente:", error)
+    return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
+  }
+}
+
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
+
+    const body = await request.json()
+    const validatedData = customerSchema.parse(body)
+
+    const customer = await prisma.customer.update({
+      where: { id },
+      data: {
+        name: validatedData.name,
+        email: validatedData.email || null,
+        phone: validatedData.phone || null,
+        document: validatedData.document || null,
+        address: validatedData.address || null,
+        city: validatedData.city || null,
+        state: validatedData.state || null,
+        zipCode: validatedData.zip_code || null,
+        notes: validatedData.notes || null,
+        isActive: validatedData.is_active,
+      },
+    })
+
+    return NextResponse.json(customer)
+  } catch (error) {
+    console.error("Erro ao atualizar cliente:", error)
+    if (error.name === "ZodError") {
+      return NextResponse.json({ error: "Dados inválidos", details: error.errors }, { status: 400 })
+    }
+    return NextResponse.json({ error: "Erro ao atualizar cliente" }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    const id = Number.parseInt(params.id)
+    if (isNaN(id)) {
+      return NextResponse.json({ error: "ID inválido" }, { status: 400 })
+    }
+
+    const salesCount = await prisma.sale.count({
+      where: { customerId: id },
+    })
+
+    if (salesCount > 0) {
+      await prisma.customer.update({
+        where: { id },
+        data: { isActive: false },
+      })
+      return NextResponse.json({ message: "Cliente desativado com sucesso (possui vendas)" })
+    } else {
+      await prisma.customer.delete({
+        where: { id },
+      })
+      return NextResponse.json({ message: "Cliente deletado com sucesso" })
+    }
+  } catch (error) {
+    console.error("Erro ao deletar cliente:", error)
+    return NextResponse.json({ error: "Erro ao deletar cliente" }, { status: 500 })
+  }
+}
