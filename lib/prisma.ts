@@ -8,6 +8,13 @@ const globalForPrisma = globalThis as unknown as {
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
+// Log para debug
+console.log("🔍 Debug Prisma:", {
+  NODE_ENV: process.env.NODE_ENV,
+  DATABASE_URL: process.env.DATABASE_URL ? "Definida" : "Não definida",
+  isBuildTime,
+});
+
 export const prisma: PrismaClient | undefined =
   globalForPrisma.prisma ??
   (isBuildTime
@@ -17,6 +24,11 @@ export const prisma: PrismaClient | undefined =
           process.env.NODE_ENV === "development"
             ? ["query", "error", "warn"]
             : ["error"],
+        datasources: {
+          db: {
+            url: process.env.DATABASE_URL,
+          },
+        },
       }));
 
 if (process.env.NODE_ENV !== "production" && !isBuildTime)
@@ -29,8 +41,15 @@ export async function testConnection() {
       console.log("⚠️ Prisma não disponível durante build");
       return false;
     }
+
+    console.log("🔗 Tentando conectar ao banco...");
     await prisma.$connect();
     console.log("✅ Conexão com banco de dados OK");
+
+    // Testar uma query simples
+    const result = await prisma.$queryRaw`SELECT 1 as test`;
+    console.log("✅ Query de teste OK:", result);
+
     return true;
   } catch (error) {
     console.error("❌ Erro de conexão:", error);
