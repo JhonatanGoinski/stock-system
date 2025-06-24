@@ -1,6 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
+// Forçar rota dinâmica para evitar problemas durante o build
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
   try {
     // Verificar se o Prisma está disponível
@@ -103,12 +106,8 @@ export async function GET(request: NextRequest) {
 
     const customerStatsWithDetails = await Promise.all(
       customerStats.map(async (stat) => {
-        // O erro "'prisma' is possibly 'undefined'" pode ocorrer se o objeto prisma não estiver importado corretamente.
-        // Certifique-se de que o prisma está importado no topo do arquivo:
-        // import { prisma } from "@/lib/prisma";
-        // Se já estiver importado, adicione uma checagem de segurança:
         if (!prisma) {
-          throw new Error("Prisma não está definido.");
+          throw new Error("Prisma não está disponível");
         }
         const customer = await prisma.customer.findUnique({
           where: { id: stat.customerId! },
@@ -148,12 +147,8 @@ export async function GET(request: NextRequest) {
 
     const productStatsWithDetails = await Promise.all(
       productStats.map(async (stat) => {
-        // O erro "'prisma' is possibly 'undefined'" pode ocorrer se o objeto prisma não estiver importado corretamente.
-        // Certifique-se de que o prisma está importado no topo do arquivo:
-        // import { prisma } from "@/lib/prisma";
-        // Se já estiver importado, adicione uma checagem de segurança:
         if (!prisma) {
-          throw new Error("Prisma não está definido.");
+          throw new Error("Prisma não está disponível");
         }
         const product = await prisma.product.findUnique({
           where: { id: stat.productId },

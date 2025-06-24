@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { customerSchema } from "@/lib/validations";
 
+// Forçar rota dinâmica para evitar problemas durante o build
+export const dynamic = "force-dynamic";
+
 export async function GET(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -207,7 +210,9 @@ export async function DELETE(
       await prisma.customer.delete({
         where: { id },
       });
-      return NextResponse.json({ message: "Cliente deletado com sucesso" });
+      return NextResponse.json({
+        message: "Cliente deletado com sucesso",
+      });
     }
   } catch (error) {
     console.error("Erro ao deletar cliente:", error);

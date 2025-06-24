@@ -2,6 +2,9 @@ import { type NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { saleSchema } from "@/lib/validations";
 
+// Forçar rota dinâmica para evitar problemas durante o build
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     // Verificar se o Prisma está disponível
