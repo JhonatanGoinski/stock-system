@@ -14,7 +14,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
 
   useEffect(() => {
-    if (status === "loading") return; // Ainda carregando
+    if (status === "loading") return;
 
     if (!session) {
       router.push("/login");
@@ -33,7 +33,7 @@ export function AuthGuard({ children }: AuthGuardProps) {
   }
 
   if (!session) {
-    return null; // Será redirecionado para /login
+    return null;
   }
 
   return <>{children}</>;
