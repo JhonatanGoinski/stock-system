@@ -31,6 +31,25 @@ export async function GET() {
     }
 
     console.log("✅ Prisma disponível, executando query...");
+    console.log(
+      "🔍 DATABASE_URL:",
+      process.env.DATABASE_URL ? "Definida" : "Não definida"
+    );
+
+    // Testar conexão primeiro
+    try {
+      await prisma.$connect();
+      console.log("✅ Conexão com banco estabelecida");
+    } catch (connectionError) {
+      console.error("❌ Erro de conexão:", connectionError);
+      return NextResponse.json(
+        {
+          error: "Erro de conexão com banco de dados",
+          details: connectionError,
+        },
+        { status: 503 }
+      );
+    }
 
     const today = new Date();
     const startOfToday = new Date(
@@ -41,6 +60,8 @@ export async function GET() {
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+    console.log("📊 Iniciando consultas do dashboard...");
 
     // Vendas de hoje
     const todayRevenue = await prisma.sale.aggregate({
@@ -54,6 +75,8 @@ export async function GET() {
       },
     });
 
+    console.log("✅ Vendas de hoje consultadas");
+
     // Vendas do mês
     const monthRevenue = await prisma.sale.aggregate({
       where: {
@@ -66,10 +89,14 @@ export async function GET() {
       },
     });
 
+    console.log("✅ Vendas do mês consultadas");
+
     // Total de clientes ativos
     const totalCustomers = await prisma.customer.count({
       where: { isActive: true },
     });
+
+    console.log("✅ Total de clientes consultado");
 
     // Produtos mais vendidos (últimos 30 dias)
     const topProducts = await prisma.sale.groupBy({
@@ -90,6 +117,8 @@ export async function GET() {
       },
       take: 5,
     });
+
+    console.log("✅ Produtos mais vendidos consultados");
 
     const topProductsWithDetails = await Promise.all(
       topProducts.map(async (item) => {
@@ -129,6 +158,8 @@ export async function GET() {
       take: 5,
     });
 
+    console.log("✅ Top clientes consultados");
+
     const topCustomersWithDetails = await Promise.all(
       topCustomers.map(async (item) => {
         const customer = await prisma.customer.findUnique({
@@ -161,6 +192,8 @@ export async function GET() {
       },
     });
 
+    console.log("✅ Produtos com estoque baixo consultados");
+
     // Vendas dos últimos 7 dias
     const dailySales = await prisma.sale.groupBy({
       by: ["saleDate"],
@@ -179,6 +212,8 @@ export async function GET() {
         saleDate: "asc",
       },
     });
+
+    console.log("✅ Vendas diárias consultadas");
 
     const formattedDailySales = dailySales.map((item) => ({
       date: item.saleDate.toISOString().split("T")[0],
@@ -210,14 +245,14 @@ export async function GET() {
         prismaError.code === "P1003"
       ) {
         return NextResponse.json(
-          { error: "Erro de conexão com o banco de dados" },
+          { error: "Erro de conexão com o banco de dados", details: error },
           { status: 503 }
         );
       }
     }
 
     return NextResponse.json(
-      { error: "Erro interno do servidor" },
+      { error: "Erro interno do servidor", details: error },
       { status: 500 }
     );
   }
