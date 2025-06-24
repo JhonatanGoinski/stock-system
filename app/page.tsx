@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { AuthGuard } from "@/components/auth/auth-guard";
+import { LandingPage } from "@/components/landing-page";
 import { Header } from "@/components/layout/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -33,8 +35,42 @@ import {
   BarChart3,
   Users,
 } from "lucide-react";
+import { DashboardStats } from "@/components/dashboard-stats";
 
 export default function Home() {
+  const { data: session, status } = useSession();
+  const [products, setProducts] = useState<Product[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [sales, setSales] = useState<SaleWithDetails[]>([]);
+  const [showProductForm, setShowProductForm] = useState(false);
+  const [showCustomerForm, setShowCustomerForm] = useState(false);
+  const [showSaleForm, setShowSaleForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  // Se não estiver logado, mostrar a landing page
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Carregando...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === "unauthenticated") {
+    return <LandingPage />;
+  }
+
+  // Se estiver logado, mostrar o dashboard
+  return <DashboardContent />;
+}
+
+function DashboardContent() {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [sales, setSales] = useState<SaleWithDetails[]>([]);
@@ -164,7 +200,7 @@ export default function Home() {
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-background md:mt-16">
         {/* Desktop Header */}
         <div className="hidden md:block">
           <Header />
@@ -232,281 +268,199 @@ export default function Home() {
                     </TabsTrigger>
                   </TabsList>
 
-                  <TabsContent value="dashboard">
-                    <div className="space-y-6">
-                      <div>
-                        <h2 className="text-3xl font-bold text-foreground">
-                          Dashboard
-                        </h2>
-                        <p className="text-muted-foreground">
-                          Visão geral do seu negócio
-                        </p>
-                      </div>
-                      <MobileDashboardStats />
+                  <TabsContent value="dashboard" className="space-y-6">
+                    <DashboardStats />
+                  </TabsContent>
+
+                  <TabsContent value="products" className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-3xl font-bold">Produtos</h2>
+                      <Button onClick={() => setShowProductForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Produto
+                      </Button>
                     </div>
+
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nome</TableHead>
+                              <TableHead>Categoria</TableHead>
+                              <TableHead>Preço</TableHead>
+                              <TableHead>Estoque</TableHead>
+                              <TableHead>Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {products.map((product) => (
+                              <TableRow key={product.id}>
+                                <TableCell className="font-medium">
+                                  {product.name}
+                                </TableCell>
+                                <TableCell>{product.category}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(Number(product.salePrice))}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={getStockBadgeVariant(
+                                      product.stockQuantity
+                                    )}
+                                  >
+                                    {getStockBadgeText(product.stockQuantity)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingProduct(product);
+                                        setShowProductForm(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteProduct(product.id)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
-                  <TabsContent value="products">
-                    {showProductForm ? (
-                      <ProductForm
-                        product={editingProduct || undefined}
-                        onSuccess={handleProductFormSuccess}
-                        onCancel={() => {
-                          setShowProductForm(false);
-                          setEditingProduct(null);
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-3xl font-bold text-foreground">
-                              Produtos
-                            </h2>
-                            <p className="text-muted-foreground">
-                              Gerencie seu catálogo de produtos
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => setShowProductForm(true)}
-                            className="flex items-center gap-2"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Novo Produto
-                          </Button>
-                        </div>
+                  <TabsContent value="customers" className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-3xl font-bold">Clientes</h2>
+                      <Button onClick={() => setShowCustomerForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Adicionar Cliente
+                      </Button>
+                    </div>
 
-                        <Card>
-                          <CardContent className="p-0">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Produto</TableHead>
-                                  <TableHead>Categoria</TableHead>
-                                  <TableHead>Preço</TableHead>
-                                  <TableHead>Estoque</TableHead>
-                                  <TableHead>Ações</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {products.map((product) => (
-                                  <TableRow key={product.id}>
-                                    <TableCell className="font-medium">
-                                      {product.name}
-                                    </TableCell>
-                                    <TableCell>{product.category}</TableCell>
-                                    <TableCell>
-                                      {formatCurrency(
-                                        Number(product.salePrice)
-                                      )}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Badge
-                                        variant={getStockBadgeVariant(
-                                          product.stockQuantity
-                                        )}
-                                      >
-                                        {product.stockQuantity} -{" "}
-                                        {getStockBadgeText(
-                                          product.stockQuantity
-                                        )}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setEditingProduct(product);
-                                            setShowProductForm(true);
-                                          }}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() =>
-                                            handleDeleteProduct(product.id)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nome</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Telefone</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {customers.map((customer) => (
+                              <TableRow key={customer.id}>
+                                <TableCell className="font-medium">
+                                  {customer.name}
+                                </TableCell>
+                                <TableCell>{customer.email}</TableCell>
+                                <TableCell>{customer.phone}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      customer.isActive
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {customer.isActive ? "Ativo" : "Inativo"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingCustomer(customer);
+                                        setShowCustomerForm(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteCustomer(customer.id)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
-                  <TabsContent value="customers">
-                    {showCustomerForm ? (
-                      <CustomerForm
-                        customer={editingCustomer || undefined}
-                        onSuccess={handleCustomerFormSuccess}
-                        onCancel={() => {
-                          setShowCustomerForm(false);
-                          setEditingCustomer(null);
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-3xl font-bold text-foreground">
-                              Clientes
-                            </h2>
-                            <p className="text-muted-foreground">
-                              Gerencie sua base de clientes
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => setShowCustomerForm(true)}
-                            className="flex items-center gap-2"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Novo Cliente
-                          </Button>
-                        </div>
+                  <TabsContent value="sales" className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-3xl font-bold">Vendas</h2>
+                      <Button onClick={() => setShowSaleForm(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Nova Venda
+                      </Button>
+                    </div>
 
-                        <Card>
-                          <CardContent className="p-0">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Nome</TableHead>
-                                  <TableHead>Email</TableHead>
-                                  <TableHead>Telefone</TableHead>
-                                  <TableHead>Status</TableHead>
-                                  <TableHead>Ações</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {customers.map((customer) => (
-                                  <TableRow key={customer.id}>
-                                    <TableCell className="font-medium">
-                                      {customer.name}
-                                    </TableCell>
-                                    <TableCell>{customer.email}</TableCell>
-                                    <TableCell>{customer.phone}</TableCell>
-                                    <TableCell>
-                                      <Badge
-                                        variant={
-                                          customer.isActive
-                                            ? "default"
-                                            : "secondary"
-                                        }
-                                      >
-                                        {customer.isActive
-                                          ? "Ativo"
-                                          : "Inativo"}
-                                      </Badge>
-                                    </TableCell>
-                                    <TableCell>
-                                      <div className="flex gap-2">
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() => {
-                                            setEditingCustomer(customer);
-                                            setShowCustomerForm(true);
-                                          }}
-                                        >
-                                          <Edit className="h-4 w-4" />
-                                        </Button>
-                                        <Button
-                                          variant="outline"
-                                          size="sm"
-                                          onClick={() =>
-                                            handleDeleteCustomer(customer.id)
-                                          }
-                                        >
-                                          <Trash2 className="h-4 w-4" />
-                                        </Button>
-                                      </div>
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
-                  </TabsContent>
-
-                  <TabsContent value="sales">
-                    {showSaleForm ? (
-                      <SaleForm
-                        onSuccess={handleSaleFormSuccess}
-                        onCancel={() => setShowSaleForm(false)}
-                      />
-                    ) : (
-                      <div className="space-y-6">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-3xl font-bold text-foreground">
-                              Vendas
-                            </h2>
-                            <p className="text-muted-foreground">
-                              Registre e acompanhe suas vendas
-                            </p>
-                          </div>
-                          <Button
-                            onClick={() => setShowSaleForm(true)}
-                            className="flex items-center gap-2"
-                          >
-                            <Plus className="h-4 w-4" />
-                            Nova Venda
-                          </Button>
-                        </div>
-
-                        <Card>
-                          <CardContent className="p-0">
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead>Data</TableHead>
-                                  <TableHead>Cliente</TableHead>
-                                  <TableHead>Produto</TableHead>
-                                  <TableHead>Quantidade</TableHead>
-                                  <TableHead>Total</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {sales.map((sale) => (
-                                  <TableRow key={sale.id}>
-                                    <TableCell>
-                                      {new Date(
-                                        sale.saleDate
-                                      ).toLocaleDateString("pt-BR")}
-                                    </TableCell>
-                                    <TableCell>
-                                      {sale.customer?.name ||
-                                        "Cliente não cadastrado"}
-                                    </TableCell>
-                                    <TableCell>
-                                      {sale.product?.name ||
-                                        "Produto não encontrado"}
-                                    </TableCell>
-                                    <TableCell>{sale.quantity}</TableCell>
-                                    <TableCell>
-                                      {formatCurrency(sale.totalAmount || 0)}
-                                    </TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </CardContent>
-                        </Card>
-                      </div>
-                    )}
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Produto</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead>Quantidade</TableHead>
+                              <TableHead>Valor Total</TableHead>
+                              <TableHead>Data</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {sales.map((sale) => (
+                              <TableRow key={sale.id}>
+                                <TableCell className="font-medium">
+                                  {sale.product?.name ||
+                                    "Produto não encontrado"}
+                                </TableCell>
+                                <TableCell>
+                                  {sale.customer?.name ||
+                                    "Cliente não encontrado"}
+                                </TableCell>
+                                <TableCell>{sale.quantity}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(Number(sale.totalAmount))}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(sale.saleDate).toLocaleDateString(
+                                    "pt-BR"
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </TabsContent>
 
                   <TabsContent value="reports">
@@ -515,327 +469,239 @@ export default function Home() {
                 </Tabs>
               </div>
 
-              {/* Mobile Content */}
+              {/* Mobile Tabs */}
               <div className="md:hidden pb-20">
-                {activeTab === "dashboard" && (
-                  <div className="space-y-4">
-                    <div>
-                      <h2 className="text-2xl font-bold text-foreground">
-                        Dashboard
-                      </h2>
-                      <p className="text-muted-foreground text-sm">
-                        Visão geral do seu negócio
-                      </p>
-                    </div>
-                    <MobileDashboardStats />
-                  </div>
-                )}
-
+                {activeTab === "dashboard" && <DashboardStats />}
                 {activeTab === "products" && (
                   <>
-                    {showProductForm ? (
-                      <ProductForm
-                        product={editingProduct || undefined}
-                        onSuccess={handleProductFormSuccess}
-                        onCancel={() => {
-                          setShowProductForm(false);
-                          setEditingProduct(null);
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-2xl font-bold text-foreground">
-                              Produtos
-                            </h2>
-                            <p className="text-muted-foreground text-sm">
-                              Gerencie seu catálogo
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => setShowProductForm(true)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
-                        </div>
-
-                        <div className="space-y-3">
-                          {products.map((product) => (
-                            <Card key={product.id} className="p-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <h3 className="font-medium text-sm truncate">
-                                    {product.name}
-                                  </h3>
-                                  <p className="text-xs text-muted-foreground">
-                                    {product.category}{" "}
-                                    {product.size && `• ${product.size}`}
-                                  </p>
-                                </div>
-                                <Badge
-                                  variant={getStockBadgeVariant(
-                                    product.stockQuantity
-                                  )}
-                                  className="text-xs"
-                                >
-                                  {product.stockQuantity}
-                                </Badge>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <div className="text-xs">
-                                  <span className="text-muted-foreground">
-                                    Custo:{" "}
-                                  </span>
-                                  <span>
-                                    {formatCurrency(Number(product.costPrice))}
-                                  </span>
-                                  <span className="text-muted-foreground ml-2">
-                                    Venda:{" "}
-                                  </span>
-                                  <span className="font-medium">
-                                    {formatCurrency(Number(product.salePrice))}
-                                  </span>
-                                </div>
-                                <div className="flex gap-1">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() => {
-                                      setEditingProduct(product);
-                                      setShowProductForm(true);
-                                    }}
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Produtos</h2>
+                      <Button
+                        onClick={() => setShowProductForm(true)}
+                        size="sm"
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Adicionar
+                      </Button>
+                    </div>
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nome</TableHead>
+                              <TableHead>Categoria</TableHead>
+                              <TableHead>Preço</TableHead>
+                              <TableHead>Estoque</TableHead>
+                              <TableHead>Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {products.map((product) => (
+                              <TableRow key={product.id}>
+                                <TableCell className="font-medium">
+                                  {product.name}
+                                </TableCell>
+                                <TableCell>{product.category}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(Number(product.salePrice))}
+                                </TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={getStockBadgeVariant(
+                                      product.stockQuantity
+                                    )}
                                   >
-                                    <Edit className="h-3 w-3" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="h-8 w-8 p-0"
-                                    onClick={() =>
-                                      handleDeleteProduct(product.id)
-                                    }
-                                  >
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </div>
-                              </div>
-                            </Card>
-                          ))}
-
-                          {products.length === 0 && (
-                            <div className="text-center py-12 text-muted-foreground">
-                              <Package className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                              <p className="mb-2">Nenhum produto cadastrado</p>
-                              <p className="text-sm">
-                                Clique em "Adicionar" para começar
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                                    {getStockBadgeText(product.stockQuantity)}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingProduct(product);
+                                        setShowProductForm(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteProduct(product.id)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </>
                 )}
-
                 {activeTab === "customers" && (
                   <>
-                    {showCustomerForm ? (
-                      <CustomerForm
-                        customer={editingCustomer || undefined}
-                        onSuccess={handleCustomerFormSuccess}
-                        onCancel={() => {
-                          setShowCustomerForm(false);
-                          setEditingCustomer(null);
-                        }}
-                      />
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-2xl font-bold text-foreground">
-                              Clientes
-                            </h2>
-                            <p className="text-muted-foreground text-sm">
-                              Gerencie seus clientes
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => setShowCustomerForm(true)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Adicionar
-                          </Button>
-                        </div>
-
-                        <div className="space-y-3">
-                          {customers.map((customer) => (
-                            <Card key={customer.id} className="p-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <h3 className="font-medium text-sm truncate">
-                                    {customer.name}
-                                  </h3>
-                                  <p className="text-xs text-muted-foreground">
-                                    {customer.email || "Sem email"}
-                                    {customer.phone && ` • ${customer.phone}`}
-                                  </p>
-                                  {customer.city && customer.state && (
-                                    <p className="text-xs text-muted-foreground">
-                                      {customer.city}, {customer.state}
-                                    </p>
-                                  )}
-                                </div>
-                                <Badge
-                                  variant={
-                                    customer.isActive ? "default" : "secondary"
-                                  }
-                                  className="text-xs"
-                                >
-                                  {customer.isActive ? "Ativo" : "Inativo"}
-                                </Badge>
-                              </div>
-                              <div className="flex justify-end gap-1">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() => {
-                                    setEditingCustomer(customer);
-                                    setShowCustomerForm(true);
-                                  }}
-                                >
-                                  <Edit className="h-3 w-3" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-8 w-8 p-0"
-                                  onClick={() =>
-                                    handleDeleteCustomer(customer.id)
-                                  }
-                                >
-                                  <Trash2 className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </Card>
-                          ))}
-
-                          {customers.length === 0 && (
-                            <div className="text-center py-12 text-muted-foreground">
-                              <Users className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                              <p className="mb-2">Nenhum cliente cadastrado</p>
-                              <p className="text-sm">
-                                Clique em "Adicionar" para começar
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Clientes</h2>
+                      <Button
+                        onClick={() => setShowCustomerForm(true)}
+                        size="sm"
+                      >
+                        <Plus className="mr-2 h-4 w-4" /> Adicionar
+                      </Button>
+                    </div>
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Nome</TableHead>
+                              <TableHead>Email</TableHead>
+                              <TableHead>Telefone</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Ações</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {customers.map((customer) => (
+                              <TableRow key={customer.id}>
+                                <TableCell className="font-medium">
+                                  {customer.name}
+                                </TableCell>
+                                <TableCell>{customer.email}</TableCell>
+                                <TableCell>{customer.phone}</TableCell>
+                                <TableCell>
+                                  <Badge
+                                    variant={
+                                      customer.isActive
+                                        ? "default"
+                                        : "secondary"
+                                    }
+                                  >
+                                    {customer.isActive ? "Ativo" : "Inativo"}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setEditingCustomer(customer);
+                                        setShowCustomerForm(true);
+                                      }}
+                                    >
+                                      <Edit className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() =>
+                                        handleDeleteCustomer(customer.id)
+                                      }
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </>
                 )}
-
                 {activeTab === "sales" && (
                   <>
-                    {showSaleForm ? (
-                      <SaleForm
-                        onSuccess={handleSaleFormSuccess}
-                        onCancel={() => setShowSaleForm(false)}
-                      />
-                    ) : (
-                      <div className="space-y-4">
-                        <div className="flex justify-between items-center">
-                          <div>
-                            <h2 className="text-2xl font-bold text-foreground">
-                              Vendas
-                            </h2>
-                            <p className="text-muted-foreground text-sm">
-                              Registre suas vendas
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            onClick={() => setShowSaleForm(true)}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Registrar
-                          </Button>
-                        </div>
-
-                        <div className="space-y-3">
-                          {sales.map((sale) => (
-                            <Card key={sale.id} className="p-4">
-                              <div className="flex justify-between items-start mb-2">
-                                <div className="flex-1 min-w-0">
-                                  <h3 className="font-medium text-sm truncate">
-                                    {sale.product?.name ||
-                                      "Produto não encontrado"}
-                                  </h3>
-                                  <p className="text-xs text-muted-foreground">
-                                    {sale.product?.category} •{" "}
-                                    {new Date(sale.saleDate).toLocaleDateString(
-                                      "pt-BR"
-                                    )}
-                                  </p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Cliente: {sale.customer?.name || "Balcão"}
-                                  </p>
-                                </div>
-                                <div className="text-right">
-                                  <p className="font-semibold text-sm">
-                                    {formatCurrency(sale.totalAmount || 0)}
-                                  </p>
-                                  {sale.discount && sale.discount > 0 && (
-                                    <p className="text-xs text-green-600">
-                                      Desc:{" "}
-                                      {formatCurrency(Number(sale.discount))}
-                                    </p>
+                    <div className="flex justify-between items-center mb-4">
+                      <h2 className="text-2xl font-bold">Vendas</h2>
+                      <Button onClick={() => setShowSaleForm(true)} size="sm">
+                        <Plus className="mr-2 h-4 w-4" /> Nova Venda
+                      </Button>
+                    </div>
+                    <Card>
+                      <CardContent className="p-0">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Produto</TableHead>
+                              <TableHead>Cliente</TableHead>
+                              <TableHead>Quantidade</TableHead>
+                              <TableHead>Valor Total</TableHead>
+                              <TableHead>Data</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {sales.map((sale) => (
+                              <TableRow key={sale.id}>
+                                <TableCell className="font-medium">
+                                  {sale.product?.name ||
+                                    "Produto não encontrado"}
+                                </TableCell>
+                                <TableCell>
+                                  {sale.customer?.name ||
+                                    "Cliente não encontrado"}
+                                </TableCell>
+                                <TableCell>{sale.quantity}</TableCell>
+                                <TableCell>
+                                  {formatCurrency(Number(sale.totalAmount))}
+                                </TableCell>
+                                <TableCell>
+                                  {new Date(sale.saleDate).toLocaleDateString(
+                                    "pt-BR"
                                   )}
-                                </div>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                <span>Qtd: {sale.quantity}</span>
-                                <span className="ml-3">
-                                  Unit: {formatCurrency(Number(sale.unitPrice))}
-                                </span>
-                              </div>
-                            </Card>
-                          ))}
-
-                          {sales.length === 0 && (
-                            <div className="text-center py-12 text-muted-foreground">
-                              <ShoppingCart className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                              <p className="mb-2">Nenhuma venda registrada</p>
-                              <p className="text-sm">
-                                Registre sua primeira venda
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </CardContent>
+                    </Card>
                   </>
                 )}
-
-                {activeTab === "reports" && (
-                  <div className="pb-20">
-                    <ReportsPage />
-                  </div>
-                )}
-              </div>
-
-              {/* Mobile Tabs */}
-              <div className="md:hidden">
+                {activeTab === "reports" && <ReportsPage />}
                 <MobileTabs activeTab={activeTab} onTabChange={setActiveTab} />
               </div>
             </>
           )}
         </div>
+
+        {/* Forms */}
+        {showProductForm && (
+          <ProductForm
+            product={editingProduct || undefined}
+            onSuccess={handleProductFormSuccess}
+            onCancel={() => {
+              setShowProductForm(false);
+              setEditingProduct(null);
+            }}
+          />
+        )}
+
+        {showCustomerForm && (
+          <CustomerForm
+            customer={editingCustomer || undefined}
+            onSuccess={handleCustomerFormSuccess}
+            onCancel={() => {
+              setShowCustomerForm(false);
+              setEditingCustomer(null);
+            }}
+          />
+        )}
+
+        {showSaleForm && (
+          <SaleForm
+            onSuccess={handleSaleFormSuccess}
+            onCancel={() => setShowSaleForm(false)}
+          />
+        )}
       </div>
     </AuthGuard>
   );

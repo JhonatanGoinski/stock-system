@@ -42,22 +42,19 @@ export function Header() {
   if (!session) return null;
 
   const handleSignOut = () => {
-    signOut({ callbackUrl: "/login" });
+    signOut({ callbackUrl: "/" });
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-4">
-        <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Building2 className="h-6 w-6 text-primary" />
-            <h1 className="text-xl font-bold text-foreground">
-              Sistema de Estoque
-            </h1>
-          </div>
-
-          {/* Status do sistema */}
-          <div className="hidden lg:flex items-center space-x-2">
+    <header className="fixed top-0 left-0 right-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="container flex h-16 items-center justify-between px-4 w-full">
+        {/* Grupo da esquerda: título e status */}
+        <div className="flex items-center space-x-2">
+          <Building2 className="h-6 w-6 text-primary" />
+          <h1 className="text-xl font-bold text-foreground">
+            Sistema de Estoque
+          </h1>
+          <div className="hidden lg:flex items-center space-x-2 ml-4">
             <Badge
               variant={isOnline ? "default" : "destructive"}
               className="text-xs"
@@ -81,6 +78,7 @@ export function Header() {
           </div>
         </div>
 
+        {/* Grupo da direita: usuário, tema, avatar, sair */}
         <div className="flex items-center space-x-4">
           {/* Toggle de tema */}
           <ThemeToggle />

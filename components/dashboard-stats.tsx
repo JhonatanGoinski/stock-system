@@ -280,8 +280,8 @@ export function DashboardStats() {
 
       {/* Gráfico de barras dos produtos mais vendidos */}
       <Card>
-        <CardHeader>
-          <CardTitle>Produtos Mais Vendidos (Últimos 30 dias)</CardTitle>
+        <CardHeader className="px-6">
+          <CardTitle>Produtos Mais Vendidos</CardTitle>
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
@@ -315,8 +315,8 @@ export function DashboardStats() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Produtos mais vendidos */}
         <Card>
-          <CardHeader>
-            <CardTitle>Top Produtos (30 dias)</CardTitle>
+          <CardHeader className="px-6">
+            <CardTitle>Top Produtos</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -349,8 +349,8 @@ export function DashboardStats() {
 
         {/* Top clientes */}
         <Card>
-          <CardHeader>
-            <CardTitle>Top Clientes (30 dias)</CardTitle>
+          <CardHeader className="px-6">
+            <CardTitle>Top Clientes</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -388,8 +388,8 @@ export function DashboardStats() {
 
         {/* Produtos com estoque baixo */}
         <Card>
-          <CardHeader>
-            <CardTitle>Estoque Baixo ({"< 5 unidades"})</CardTitle>
+          <CardHeader className="px-6">
+            <CardTitle>Estoque Baixo</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
