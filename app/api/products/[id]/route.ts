@@ -87,6 +87,7 @@ export async function GET(
       salePrice: Number(product.salePrice),
       sales: product.sales.map((sale) => ({
         ...sale,
+        customer: sale.customer,
         unitPrice: Number(sale.unitPrice),
         totalAmount: Number(sale.totalAmount),
         discount: Number(sale.discount || 0),

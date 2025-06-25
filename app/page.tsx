@@ -39,6 +39,8 @@ import { DashboardStats } from "@/components/dashboard-stats";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { useIsMobile } from "@/hooks/use-is-mobile";
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
+import { SalesFilter } from "@/components/sales-filter";
+import { CustomersFilter } from "@/components/customers-filter";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -202,6 +204,65 @@ function DashboardContent() {
     return "Em estoque";
   };
 
+  // Funções para filtros
+  const fetchSalesWithFilter = async (filters: {
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.date) params.append("date", filters.date);
+      if (filters.startDate) params.append("startDate", filters.startDate);
+      if (filters.endDate) params.append("endDate", filters.endDate);
+
+      const response = await fetch(`/api/sales?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setSales(data);
+      } else {
+        console.error("Erro na resposta da API de vendas:", response.status);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar vendas:", error);
+    }
+  };
+
+  const fetchCustomersWithFilter = async (filters: { name?: string }) => {
+    try {
+      const params = new URLSearchParams();
+      if (filters.name) params.append("name", filters.name);
+
+      const response = await fetch(`/api/customers?${params}`);
+      if (response.ok) {
+        const data = await response.json();
+        setCustomers(data);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar clientes:", error);
+    }
+  };
+
+  const handleSalesFilterChange = (filters: {
+    date?: string;
+    startDate?: string;
+    endDate?: string;
+  }) => {
+    fetchSalesWithFilter(filters);
+  };
+
+  const handleSalesFilterClear = () => {
+    fetchSales();
+  };
+
+  const handleCustomersFilterChange = (filters: { name?: string }) => {
+    fetchCustomersWithFilter(filters);
+  };
+
+  const handleCustomersFilterClear = () => {
+    fetchCustomers();
+  };
+
   return (
     <AuthGuard>
       <div className="min-h-screen bg-background md:mt-16">
@@ -356,6 +417,11 @@ function DashboardContent() {
                       </Button>
                     </div>
 
+                    <CustomersFilter
+                      onFilterChange={handleCustomersFilterChange}
+                      onClearFilters={handleCustomersFilterClear}
+                    />
+
                     <Card>
                       <CardContent className="p-0">
                         <Table>
@@ -426,6 +492,11 @@ function DashboardContent() {
                         Nova Venda
                       </Button>
                     </div>
+
+                    <SalesFilter
+                      onFilterChange={handleSalesFilterChange}
+                      onClearFilters={handleSalesFilterClear}
+                    />
 
                     <Card>
                       <CardContent className="p-0">
@@ -560,6 +631,12 @@ function DashboardContent() {
                         <Plus className="mr-2 h-4 w-4" /> Adicionar
                       </Button>
                     </div>
+
+                    <CustomersFilter
+                      onFilterChange={handleCustomersFilterChange}
+                      onClearFilters={handleCustomersFilterClear}
+                    />
+
                     <Card>
                       <CardContent className="p-0">
                         <Table>
@@ -630,6 +707,12 @@ function DashboardContent() {
                         <Plus className="mr-2 h-4 w-4" /> Nova Venda
                       </Button>
                     </div>
+
+                    <SalesFilter
+                      onFilterChange={handleSalesFilterChange}
+                      onClearFilters={handleSalesFilterClear}
+                    />
+
                     <Card>
                       <CardContent className="p-0">
                         <Table>
@@ -678,135 +761,76 @@ function DashboardContent() {
         </div>
 
         {/* Forms */}
-        {isMobile ? (
-          <Drawer
-            open={showProductForm}
-            onOpenChange={(open) => {
-              if (!open) {
-                setShowProductForm(false);
-                setEditingProduct(null);
-              }
-            }}
+        <Dialog
+          open={showProductForm}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowProductForm(false);
+              setEditingProduct(null);
+            }
+          }}
+        >
+          <DialogContent
+            className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh]"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <DrawerContent>
-              {showProductForm && (
-                <ProductForm
-                  product={editingProduct || undefined}
-                  onSuccess={handleProductFormSuccess}
-                  onCancel={() => {
-                    setShowProductForm(false);
-                    setEditingProduct(null);
-                  }}
-                />
-              )}
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog
-            open={showProductForm}
-            onOpenChange={(open) => {
-              if (!open) {
-                setShowProductForm(false);
-                setEditingProduct(null);
-              }
-            }}
-          >
-            <DialogContent>
-              {showProductForm && (
-                <ProductForm
-                  product={editingProduct || undefined}
-                  onSuccess={handleProductFormSuccess}
-                  onCancel={() => {
-                    setShowProductForm(false);
-                    setEditingProduct(null);
-                  }}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
-        )}
+            {showProductForm && (
+              <ProductForm
+                product={editingProduct || undefined}
+                onSuccess={handleProductFormSuccess}
+                onCancel={() => {
+                  setShowProductForm(false);
+                  setEditingProduct(null);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
-        {isMobile ? (
-          <Drawer
-            open={showCustomerForm}
-            onOpenChange={(open) => {
-              if (!open) {
-                setShowCustomerForm(false);
-                setEditingCustomer(null);
-              }
-            }}
+        <Dialog
+          open={showCustomerForm}
+          onOpenChange={(open) => {
+            if (!open) {
+              setShowCustomerForm(false);
+              setEditingCustomer(null);
+            }
+          }}
+        >
+          <DialogContent
+            className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh]"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <DrawerContent>
-              {showCustomerForm && (
-                <CustomerForm
-                  customer={editingCustomer || undefined}
-                  onSuccess={handleCustomerFormSuccess}
-                  onCancel={() => {
-                    setShowCustomerForm(false);
-                    setEditingCustomer(null);
-                  }}
-                />
-              )}
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog
-            open={showCustomerForm}
-            onOpenChange={(open) => {
-              if (!open) {
-                setShowCustomerForm(false);
-                setEditingCustomer(null);
-              }
-            }}
-          >
-            <DialogContent>
-              {showCustomerForm && (
-                <CustomerForm
-                  customer={editingCustomer || undefined}
-                  onSuccess={handleCustomerFormSuccess}
-                  onCancel={() => {
-                    setShowCustomerForm(false);
-                    setEditingCustomer(null);
-                  }}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
-        )}
+            {showCustomerForm && (
+              <CustomerForm
+                customer={editingCustomer || undefined}
+                onSuccess={handleCustomerFormSuccess}
+                onCancel={() => {
+                  setShowCustomerForm(false);
+                  setEditingCustomer(null);
+                }}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
-        {isMobile ? (
-          <Drawer
-            open={showSaleForm}
-            onOpenChange={(open) => {
-              if (!open) setShowSaleForm(false);
-            }}
+        <Dialog
+          open={showSaleForm}
+          onOpenChange={(open) => {
+            if (!open) setShowSaleForm(false);
+          }}
+        >
+          <DialogContent
+            className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh]"
+            onOpenAutoFocus={(e) => e.preventDefault()}
           >
-            <DrawerContent>
-              {showSaleForm && (
-                <SaleForm
-                  onSuccess={handleSaleFormSuccess}
-                  onCancel={() => setShowSaleForm(false)}
-                />
-              )}
-            </DrawerContent>
-          </Drawer>
-        ) : (
-          <Dialog
-            open={showSaleForm}
-            onOpenChange={(open) => {
-              if (!open) setShowSaleForm(false);
-            }}
-          >
-            <DialogContent>
-              {showSaleForm && (
-                <SaleForm
-                  onSuccess={handleSaleFormSuccess}
-                  onCancel={() => setShowSaleForm(false)}
-                />
-              )}
-            </DialogContent>
-          </Dialog>
-        )}
+            {showSaleForm && (
+              <SaleForm
+                onSuccess={handleSaleFormSuccess}
+                onCancel={() => setShowSaleForm(false)}
+              />
+            )}
+          </DialogContent>
+        </Dialog>
       </div>
     </AuthGuard>
   );

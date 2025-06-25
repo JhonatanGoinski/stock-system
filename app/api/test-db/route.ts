@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
 
-export const dynamic = "force-dynamic";
-
 // Verificar se estamos em ambiente de build
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;

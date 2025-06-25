@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { logger } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -48,8 +49,8 @@ export async function GET(request: NextRequest) {
 
     const whereClause: any = {
       saleDate: {
-        gte: new Date(startDate),
-        lte: new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000 - 1),
+        gte: new Date(startDate + "T00:00:00-03:00"),
+        lte: new Date(endDate + "T23:59:59-03:00"),
       },
     };
 
@@ -217,9 +218,10 @@ export async function GET(request: NextRequest) {
       ),
     };
 
-    // Se formato for CSV, retornar CSV
+    // Se for solicitado formato CSV
     if (format === "csv") {
       const csvHeaders = [
+        "ID",
         "Data",
         "Hora",
         "Produto",
@@ -230,7 +232,7 @@ export async function GET(request: NextRequest) {
         "Cidade",
         "Estado",
         "Quantidade",
-        "Preço Unit.",
+        "Preço Unitário",
         "Desconto",
         "Total",
         "Custo",
@@ -239,6 +241,7 @@ export async function GET(request: NextRequest) {
       ];
 
       const csvRows = formattedSales.map((sale) => [
+        sale.id,
         sale.date,
         sale.time,
         sale.product_name,
@@ -249,16 +252,16 @@ export async function GET(request: NextRequest) {
         sale.customer_city || "",
         sale.customer_state || "",
         sale.quantity,
-        sale.unit_price.toFixed(2),
-        sale.discount.toFixed(2),
-        sale.total_amount.toFixed(2),
-        sale.cost_price.toFixed(2),
-        sale.profit.toFixed(2),
+        sale.unit_price,
+        sale.discount,
+        sale.total_amount,
+        sale.cost_price,
+        sale.profit,
         sale.notes || "",
       ]);
 
       const csvContent = [csvHeaders, ...csvRows]
-        .map((row) => row.map((field) => `"${field}"`).join(","))
+        .map((row) => row.map((cell) => `"${cell}"`).join(","))
         .join("\n");
 
       return new NextResponse(csvContent, {
@@ -271,7 +274,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(reportData);
   } catch (error) {
-    console.error("❌ Erro ao gerar relatório:", error);
+    console.error("Erro ao gerar relatório:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

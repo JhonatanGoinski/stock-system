@@ -35,9 +35,24 @@ export async function GET(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const active = searchParams.get("active");
+    const nameFilter = searchParams.get("name");
+
+    // Construir filtro
+    let whereClause: any = {};
+
+    if (active === "true") {
+      whereClause.isActive = true;
+    }
+
+    if (nameFilter) {
+      whereClause.name = {
+        contains: nameFilter,
+        mode: "insensitive", // Busca case-insensitive
+      };
+    }
 
     const customers = await prisma.customer.findMany({
-      where: active === "true" ? { isActive: true } : undefined,
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       orderBy: { createdAt: "desc" },
       include: {
         _count: {

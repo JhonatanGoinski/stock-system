@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
     logger.build("🚫 Build time detected, skipping Prisma operations");
@@ -34,7 +34,42 @@ export async function GET() {
 
     logger.info("✅ Prisma disponível, executando query...");
 
+    // Obter parâmetros de filtro
+    const { searchParams } = new URL(request.url);
+    const dateFilter = searchParams.get("date");
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    // Construir filtro de data
+    let dateWhereClause = {};
+    if (dateFilter) {
+      // Filtro por data específica - considerar fuso horário do Brasil (UTC-3)
+      const targetDate = new Date(dateFilter + "T00:00:00-03:00");
+      const nextDay = new Date(dateFilter + "T00:00:00-03:00");
+      nextDay.setDate(nextDay.getDate() + 1);
+
+      dateWhereClause = {
+        saleDate: {
+          gte: targetDate,
+          lt: nextDay,
+        },
+      };
+    } else if (startDate && endDate) {
+      // Filtro por intervalo de datas
+      const start = new Date(startDate + "T00:00:00-03:00");
+      const end = new Date(endDate + "T00:00:00-03:00");
+      end.setDate(end.getDate() + 1); // Incluir o dia final
+
+      dateWhereClause = {
+        saleDate: {
+          gte: start,
+          lt: end,
+        },
+      };
+    }
+
     const sales = await prisma.sale.findMany({
+      where: dateWhereClause,
       include: {
         product: {
           select: {
