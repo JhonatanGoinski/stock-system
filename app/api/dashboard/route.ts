@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { logger } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ const isBuildTime =
 export async function GET() {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
-    console.log("🚫 Build time detected, skipping Prisma operations");
+    logger.build("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -23,15 +24,15 @@ export async function GET() {
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
-      console.log("❌ Prisma não disponível");
+      logger.error("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
 
-    console.log("✅ Prisma disponível, executando query...");
-    console.log(
+    logger.info("✅ Prisma disponível, executando query...");
+    logger.debug(
       "🔍 DATABASE_URL:",
       process.env.DATABASE_URL ? "Definida" : "Não definida"
     );
@@ -39,9 +40,9 @@ export async function GET() {
     // Testar conexão primeiro
     try {
       await prisma.$connect();
-      console.log("✅ Conexão com banco estabelecida");
+      logger.success("✅ Conexão com banco estabelecida");
     } catch (connectionError) {
-      console.error("❌ Erro de conexão:", connectionError);
+      logger.error("❌ Erro de conexão:", connectionError);
       return NextResponse.json(
         {
           error: "Erro de conexão com banco de dados",
@@ -61,7 +62,7 @@ export async function GET() {
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
     const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    console.log("📊 Iniciando consultas do dashboard...");
+    logger.info("📊 Iniciando consultas do dashboard...");
 
     // Vendas de hoje
     const todayRevenue = await prisma.sale.aggregate({
@@ -75,7 +76,7 @@ export async function GET() {
       },
     });
 
-    console.log("✅ Vendas de hoje consultadas");
+    logger.debug("✅ Vendas de hoje consultadas");
 
     // Vendas do mês
     const monthRevenue = await prisma.sale.aggregate({
@@ -89,14 +90,14 @@ export async function GET() {
       },
     });
 
-    console.log("✅ Vendas do mês consultadas");
+    logger.debug("✅ Vendas do mês consultadas");
 
     // Total de clientes ativos
     const totalCustomers = await prisma.customer.count({
       where: { isActive: true },
     });
 
-    console.log("✅ Total de clientes consultado");
+    logger.debug("✅ Total de clientes consultado");
 
     // Produtos mais vendidos (últimos 30 dias)
     const topProducts = await prisma.sale.groupBy({
@@ -118,7 +119,7 @@ export async function GET() {
       take: 5,
     });
 
-    console.log("✅ Produtos mais vendidos consultados");
+    logger.debug("✅ Produtos mais vendidos consultados");
 
     const topProductsWithDetails = await Promise.all(
       topProducts.map(async (item) => {
@@ -158,7 +159,7 @@ export async function GET() {
       take: 5,
     });
 
-    console.log("✅ Top clientes consultados");
+    logger.debug("✅ Top clientes consultados");
 
     const topCustomersWithDetails = await Promise.all(
       topCustomers.map(async (item) => {
@@ -192,7 +193,7 @@ export async function GET() {
       },
     });
 
-    console.log("✅ Produtos com estoque baixo consultados");
+    logger.debug("✅ Produtos com estoque baixo consultados");
 
     // Vendas dos últimos 7 dias
     const dailySales = await prisma.sale.groupBy({
@@ -213,7 +214,7 @@ export async function GET() {
       },
     });
 
-    console.log("✅ Vendas diárias consultadas");
+    logger.debug("✅ Vendas diárias consultadas");
 
     const formattedDailySales = dailySales.map((item) => ({
       date: item.saleDate.toISOString().split("T")[0],
@@ -231,10 +232,10 @@ export async function GET() {
       dailySales: formattedDailySales,
     };
 
-    console.log("✅ Dados do dashboard carregados com sucesso");
+    logger.info("✅ Dados do dashboard carregados com sucesso");
     return NextResponse.json(dashboardData);
   } catch (error) {
-    console.error("❌ Erro ao carregar dados do dashboard:", error);
+    logger.error("❌ Erro ao carregar dados do dashboard:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

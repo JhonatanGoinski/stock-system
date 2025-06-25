@@ -124,7 +124,6 @@ function DashboardContent() {
       const response = await fetch("/api/sales");
       if (response.ok) {
         const data = await response.json();
-        console.log("Vendas recebidas:", data.length, data);
         setSales(data);
       } else {
         console.error("Erro na resposta da API de vendas:", response.status);

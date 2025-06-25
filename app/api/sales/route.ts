@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { saleSchema } from "@/lib/validations";
+import { logger } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -11,7 +12,7 @@ const isBuildTime =
 export async function GET() {
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
-    console.log("🚫 Build time detected, skipping Prisma operations");
+    logger.build("🚫 Build time detected, skipping Prisma operations");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -24,14 +25,14 @@ export async function GET() {
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
-      console.log("❌ Prisma não disponível");
+      logger.error("❌ Prisma não disponível");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
       );
     }
 
-    console.log("✅ Prisma disponível, executando query...");
+    logger.info("✅ Prisma disponível, executando query...");
 
     const sales = await prisma.sale.findMany({
       include: {
@@ -50,8 +51,6 @@ export async function GET() {
       },
       orderBy: { saleDate: "desc" },
     });
-
-    console.log("Vendas encontradas:", sales.length);
 
     const formattedSales = sales.map((sale) => ({
       id: sale.id,
@@ -76,10 +75,10 @@ export async function GET() {
         : null,
     }));
 
-    console.log("Vendas formatadas:", formattedSales.length);
+    logger.success(`✅ ${formattedSales.length} vendas formatadas`);
     return NextResponse.json(formattedSales);
   } catch (error) {
-    console.error("❌ Erro ao buscar vendas:", error);
+    logger.error("❌ Erro ao buscar vendas:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {
