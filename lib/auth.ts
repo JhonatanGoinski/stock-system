@@ -1,4 +1,7 @@
 import CredentialsProvider from "next-auth/providers/credentials";
+import { PrismaClient } from "@prisma/client";
+
+const prisma = new PrismaClient();
 
 export const authOptions = {
   providers: [
@@ -14,31 +17,26 @@ export const authOptions = {
         }
 
         try {
-          // Para demo, vamos usar credenciais fixas
-          // Em produção, você deve hash as senhas no banco
-          if (
-            credentials.email === "admin@empresa.com" &&
-            credentials.password === "admin123"
-          ) {
-            return {
-              id: "1",
-              email: "admin@empresa.com",
-              name: "Administrador",
-              role: "admin",
-              company: "Minha Empresa Ltda",
-            };
+          // Buscar credenciais no banco de dados
+          const user = await prisma.loginCredentials.findUnique({
+            where: {
+              email: credentials.email,
+            },
+          });
+
+          if (!user || !user.isActive) {
+            return null;
           }
 
-          if (
-            credentials.email === "user@empresa.com" &&
-            credentials.password === "user123"
-          ) {
+          // Verificar senha (comparação direta para senhas não hash)
+          // Em produção, você deve usar bcrypt.compare() se as senhas estiverem hash
+          if (user.password === credentials.password) {
             return {
-              id: "2",
-              email: "user@empresa.com",
-              name: "Usuário",
-              role: "user",
-              company: "Minha Empresa Ltda",
+              id: user.id.toString(),
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              company: user.company,
             };
           }
 

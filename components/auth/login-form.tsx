@@ -109,20 +109,6 @@ export function LoginForm() {
               {isLoading ? "Entrando..." : "Entrar"}
             </Button>
           </form>
-
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-sm font-medium text-gray-700 mb-2">
-              Credenciais de teste:
-            </p>
-            <div className="space-y-1 text-xs text-gray-600">
-              <p>
-                <strong>Admin:</strong> admin@empresa.com / admin123
-              </p>
-              <p>
-                <strong>Usuário:</strong> user@empresa.com / user123
-              </p>
-            </div>
-          </div>
         </CardContent>
       </Card>
     </div>

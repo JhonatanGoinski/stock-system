@@ -1,5 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { productSchema } from "@/lib/validations";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -9,6 +11,15 @@ const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
 export async function GET() {
+  console.log("🔍 GET /api/products - Buscando produtos");
+
+  // Verificar autenticação
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    console.log("❌ Usuário não autenticado");
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
     console.log("🚫 Build time detected, skipping Prisma operations");
@@ -43,8 +54,19 @@ export async function GET() {
       salePrice: Number(product.salePrice),
     }));
 
-    console.log(`✅ ${products.length} produtos encontrados`);
-    return NextResponse.json(formattedProducts);
+    console.log(`✅ ${formattedProducts.length} produtos encontrados`);
+
+    // Criar resposta SEM cache para evitar problemas de atualização
+    const response = NextResponse.json(formattedProducts);
+    response.headers.set(
+      "Cache-Control",
+      "no-cache, no-store, must-revalidate"
+    );
+    response.headers.set("Pragma", "no-cache");
+    response.headers.set("Expires", "0");
+    response.headers.set("X-Cache-Status", "DISABLED");
+
+    return response;
   } catch (error) {
     console.error("❌ Erro ao buscar produtos:", error);
 
@@ -71,6 +93,12 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  // Verificar autenticação
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+  }
+
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
     return NextResponse.json(

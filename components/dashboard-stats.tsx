@@ -69,6 +69,44 @@ export function DashboardStats() {
     try {
       const response = await fetch("/api/dashboard");
       const dashboardData = await response.json();
+
+      // Debug: verificar dados do gráfico
+      console.log("📊 Dados do dashboard recebidos:", {
+        dailySales: dashboardData.dailySales,
+        todayRevenue: dashboardData.todayRevenue,
+        totalDays: dashboardData.dailySales?.length,
+        responseStatus: response.status,
+        responseOk: response.ok,
+      });
+
+      // Debug: verificar se todos os campos estão presentes
+      console.log("🔍 Campos do dashboard:", {
+        hasTodayRevenue: "todayRevenue" in dashboardData,
+        hasMonthRevenue: "monthRevenue" in dashboardData,
+        hasTotalCustomers: "totalCustomers" in dashboardData,
+        hasTopProducts: "topProducts" in dashboardData,
+        hasTopCustomers: "topCustomers" in dashboardData,
+        hasLowStockProducts: "lowStockProducts" in dashboardData,
+        hasDailySales: "dailySales" in dashboardData,
+      });
+
+      // Debug: verificar cada dia individualmente
+      if (dashboardData.dailySales) {
+        console.log(
+          "📅 Total de dias no dailySales:",
+          dashboardData.dailySales.length
+        );
+        dashboardData.dailySales.forEach((day: any, index: number) => {
+          console.log(`📅 Dia ${index + 1}:`, {
+            date: day.date,
+            revenue: day.revenue,
+            sales_count: day.sales_count,
+          });
+        });
+      } else {
+        console.log("❌ dailySales está undefined ou null");
+      }
+
       setData(dashboardData);
     } catch (error) {
       console.error("Erro ao buscar dados do dashboard:", error);
@@ -104,7 +142,7 @@ export function DashboardStats() {
   }
 
   // Preparar dados para gráfico de pizza das categorias
-  const categoryData = data.topProducts.reduce((acc, product) => {
+  const categoryData = (data.topProducts || []).reduce((acc, product) => {
     const existing = acc.find((item) => item.name === product.category);
     if (existing) {
       existing.value += product.revenue;
@@ -125,7 +163,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(data.todayRevenue)}
+              {formatCurrency(data.todayRevenue || 0)}
             </div>
           </CardContent>
         </Card>
@@ -137,7 +175,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {formatCurrency(data.monthRevenue)}
+              {formatCurrency(data.monthRevenue || 0)}
             </div>
           </CardContent>
         </Card>
@@ -150,7 +188,7 @@ export function DashboardStats() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.totalCustomers}</div>
+            <div className="text-2xl font-bold">{data.totalCustomers || 0}</div>
           </CardContent>
         </Card>
 
@@ -162,7 +200,9 @@ export function DashboardStats() {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{data.topProducts.length}</div>
+            <div className="text-2xl font-bold">
+              {(data.topProducts || []).length}
+            </div>
           </CardContent>
         </Card>
 
@@ -173,7 +213,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-destructive">
-              {data.lowStockProducts.length}
+              {(data.lowStockProducts || []).length}
             </div>
           </CardContent>
         </Card>
@@ -185,7 +225,10 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">
-              {data.dailySales.reduce((sum, day) => sum + day.sales_count, 0)}
+              {(data.dailySales || []).reduce(
+                (sum, day) => sum + (day.sales_count || 0),
+                0
+              )}
             </div>
           </CardContent>
         </Card>
@@ -200,7 +243,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={data.dailySales}>
+              <LineChart data={data.dailySales || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
@@ -285,7 +328,7 @@ export function DashboardStats() {
         </CardHeader>
         <CardContent>
           <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={data.topProducts}>
+            <BarChart data={data.topProducts || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="name"
@@ -320,7 +363,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.topProducts.slice(0, 5).map((product, index) => (
+              {(data.topProducts || []).slice(0, 5).map((product, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -338,7 +381,7 @@ export function DashboardStats() {
                   </div>
                 </div>
               ))}
-              {data.topProducts.length === 0 && (
+              {(data.topProducts || []).length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Nenhuma venda nos últimos 30 dias
                 </p>
@@ -354,7 +397,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.topCustomers.slice(0, 5).map((customer, index) => (
+              {(data.topCustomers || []).slice(0, 5).map((customer, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
@@ -377,7 +420,7 @@ export function DashboardStats() {
                   </div>
                 </div>
               ))}
-              {data.topCustomers.length === 0 && (
+              {(data.topCustomers || []).length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Nenhuma venda com cliente nos últimos 30 dias
                 </p>
@@ -393,7 +436,7 @@ export function DashboardStats() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {data.lowStockProducts.map((product, index) => (
+              {(data.lowStockProducts || []).map((product, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg"
@@ -401,17 +444,21 @@ export function DashboardStats() {
                   <div className="flex-1 min-w-0">
                     <p className="font-medium truncate">{product.name}</p>
                     <p className="text-sm text-muted-foreground">
-                      {product.category}
+                      {product.category} • {product.stockQuantity} em estoque
                     </p>
                   </div>
-                  <Badge variant="destructive">
-                    {product.stockQuantity} unidades
-                  </Badge>
+                  <div className="text-right ml-2">
+                    <Badge variant="destructive">
+                      {product.stockQuantity === 0
+                        ? "Sem estoque"
+                        : "Estoque baixo"}
+                    </Badge>
+                  </div>
                 </div>
               ))}
-              {data.lowStockProducts.length === 0 && (
-                <p className="text-green-600 dark:text-green-400 text-center py-4">
-                  ✅ Todos os produtos têm estoque adequado
+              {(data.lowStockProducts || []).length === 0 && (
+                <p className="text-muted-foreground text-center py-4">
+                  Todos os produtos com estoque adequado
                 </p>
               )}
             </div>

@@ -216,8 +216,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
+  console.log("🔍 DELETE request recebida para produto:", params.id);
+
   // Se estamos em build time, retornar imediatamente
   if (isBuildTime) {
+    console.log("🚫 Build time detected, skipping DELETE operation");
     return NextResponse.json(
       { error: "Serviço indisponível durante build" },
       { status: 503 }
@@ -230,6 +233,7 @@ export async function DELETE(
   try {
     // Verificar se o Prisma está disponível
     if (!prisma) {
+      console.log("❌ Prisma não disponível para DELETE");
       return NextResponse.json(
         { error: "Serviço indisponível" },
         { status: 503 }
@@ -238,30 +242,38 @@ export async function DELETE(
 
     const id = Number.parseInt(params.id);
     if (isNaN(id)) {
+      console.log("❌ ID inválido:", params.id);
       return NextResponse.json({ error: "ID inválido" }, { status: 400 });
     }
 
-    const salesCount = await prisma.sale.count({
-      where: { productId: id },
+    console.log("🔍 Verificando se produto existe:", id);
+
+    // Verificar se o produto existe
+    const product = await prisma.product.findUnique({
+      where: { id },
     });
 
-    if (salesCount > 0) {
-      await prisma.product.delete({
-        where: { id },
-      });
-      return NextResponse.json({
-        message: "Produto deletado com sucesso",
-      });
-    } else {
-      await prisma.product.delete({
-        where: { id },
-      });
-      return NextResponse.json({
-        message: "Produto deletado com sucesso",
-      });
+    if (!product) {
+      console.log("❌ Produto não encontrado:", id);
+      return NextResponse.json(
+        { error: "Produto não encontrado" },
+        { status: 404 }
+      );
     }
+
+    console.log("✅ Produto encontrado, deletando:", product.name);
+
+    // Deletar o produto (as vendas serão deletadas automaticamente devido ao onDelete: Cascade)
+    await prisma.product.delete({
+      where: { id },
+    });
+
+    console.log("✅ Produto deletado com sucesso:", product.name);
+    return NextResponse.json({
+      message: "Produto deletado com sucesso",
+    });
   } catch (error) {
-    console.error("Erro ao deletar produto:", error);
+    console.error("❌ Erro ao deletar produto:", error);
 
     // Verificar se é um erro de conexão com o banco
     if (error && typeof error === "object" && "code" in error) {

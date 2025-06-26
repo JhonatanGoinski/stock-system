@@ -24,6 +24,7 @@ model Product {
 
   // Relacionamentos
   sales Sale[]
+  productionHistory ProductionHistory[]
 
   // Índices
   @@index([category])
@@ -144,4 +145,37 @@ model VerificationToken {
 
   @@unique([identifier, token])
   @@map("verification_tokens")
+}
+
+model LoginCredentials {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  name      String   @db.VarChar(255)
+  role      String   @default("user") @db.VarChar(50)
+  company   String?  @db.VarChar(255)
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([email])
+  @@index([isActive])
+  @@map("login_credentials")
+}
+
+model ProductionHistory {
+  id          Int      @id @default(autoincrement())
+  productId   Int      @map("product_id")
+  quantity    Int
+  productionDate DateTime @map("production_date")
+  notes       String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  // Relacionamentos
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  // Índices
+  @@index([productId])
+  @@index([productionDate])
+  @@map("production_history")
 }

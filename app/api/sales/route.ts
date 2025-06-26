@@ -43,10 +43,10 @@ export async function GET(request: NextRequest) {
     // Construir filtro de data
     let dateWhereClause = {};
     if (dateFilter) {
-      // Filtro por data específica - considerar fuso horário do Brasil (UTC-3)
-      const targetDate = new Date(dateFilter + "T00:00:00-03:00");
-      const nextDay = new Date(dateFilter + "T00:00:00-03:00");
-      nextDay.setDate(nextDay.getDate() + 1);
+      // Filtro por data específica - usar timezone local
+      const targetDate = new Date(dateFilter + "T00:00:00");
+      const nextDay = new Date(dateFilter + "T00:00:00");
+      nextDay.setDate(targetDate.getDate() + 1);
 
       dateWhereClause = {
         saleDate: {
@@ -55,9 +55,9 @@ export async function GET(request: NextRequest) {
         },
       };
     } else if (startDate && endDate) {
-      // Filtro por intervalo de datas
-      const start = new Date(startDate + "T00:00:00-03:00");
-      const end = new Date(endDate + "T00:00:00-03:00");
+      // Filtro por intervalo de datas - usar timezone local
+      const start = new Date(startDate + "T00:00:00");
+      const end = new Date(endDate + "T00:00:00");
       end.setDate(end.getDate() + 1); // Incluir o dia final
 
       dateWhereClause = {
@@ -200,7 +200,14 @@ export async function POST(request: NextRequest) {
 
     // Criar venda e atualizar estoque em transação
     const result = await prisma.$transaction(async (tx) => {
-      // Criar venda
+      // Criar venda com data local (sem timezone)
+      const now = new Date();
+      const localDate = new Date(
+        now.getFullYear(),
+        now.getMonth(),
+        now.getDate()
+      );
+
       const sale = await tx.sale.create({
         data: {
           productId: validatedData.product_id,
@@ -210,6 +217,7 @@ export async function POST(request: NextRequest) {
           totalAmount: total_amount,
           discount: discount,
           notes: validatedData.notes || null,
+          saleDate: localDate, // Data local (sem horário)
         },
       });
 

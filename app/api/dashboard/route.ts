@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { logger } from "@/lib/utils";
+import { logger, cacheUtils } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
+
+// Configuração de cache
+export const revalidate = 300; // Revalidar a cada 5 minutos
 
 // Verificar se estamos em ambiente de build (apenas quando não há DATABASE_URL)
 const isBuildTime =
@@ -52,177 +55,371 @@ export async function GET() {
       );
     }
 
+    // CORREÇÃO: Ajustar datas para compensar timezone UTC+3 do banco
     const today = new Date();
-    // Usar a lógica original que funcionava para vendas de hoje
-    const startOfToday = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    );
+
+    // Início do dia de hoje (00:00:00) - timezone local
+    const startOfToday = new Date(today);
+    startOfToday.setHours(0, 0, 0, 0);
+
+    // Fim do dia de hoje (23:59:59) - timezone local
+    const endOfToday = new Date(today);
+    endOfToday.setHours(23, 59, 59, 999);
+
+    // Início do mês atual - timezone local
     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
     startOfMonth.setHours(0, 0, 0, 0);
-    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-    const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
 
-    logger.info("📊 Iniciando consultas do dashboard...");
+    // 30 dias atrás (para produtos mais vendidos) - timezone local
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(today.getDate() - 30);
+    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    // Vendas de hoje
-    const todayRevenue = await prisma.sale.aggregate({
-      where: {
-        saleDate: {
-          gte: startOfToday,
-        },
-      },
-      _sum: {
-        totalAmount: true,
-      },
+    // 7 dias atrás (para gráfico de vendas) - timezone local
+    const sevenDaysAgo = new Date(today);
+    sevenDaysAgo.setDate(today.getDate() - 6); // 6 dias atrás + hoje = 7 dias
+    sevenDaysAgo.setHours(0, 0, 0, 0);
+
+    // AJUSTE: Como o banco salva com UTC+3, vamos buscar um dia antes para compensar
+    // Se hoje é dia 25, queremos buscar vendas do dia 24 no banco (que foram salvas como 25)
+    const adjustedSevenDaysAgo = new Date(sevenDaysAgo);
+    adjustedSevenDaysAgo.setDate(sevenDaysAgo.getDate() - 1);
+
+    const adjustedEndOfToday = new Date(endOfToday);
+    adjustedEndOfToday.setDate(endOfToday.getDate() - 1);
+
+    logger.info("📊 Iniciando consultas otimizadas do dashboard...");
+    logger.debug("�� Datas calculadas (ajustadas para UTC+3):", {
+      today: today.toISOString(),
+      startOfToday: startOfToday.toISOString(),
+      endOfToday: endOfToday.toISOString(),
+      sevenDaysAgo: sevenDaysAgo.toISOString(),
+      adjustedSevenDaysAgo: adjustedSevenDaysAgo.toISOString(),
+      adjustedEndOfToday: adjustedEndOfToday.toISOString(),
+      todayDate: today.getDate(),
+      sevenDaysAgoDate: sevenDaysAgo.getDate(),
+      adjustedSevenDaysAgoDate: adjustedSevenDaysAgo.getDate(),
+      difference: today.getDate() - sevenDaysAgo.getDate(),
+      expectedDays: "7 dias (incluindo hoje)",
+      timezone: "Local (ajustado -1 dia para compensar UTC+3 do banco)",
+      note: "Banco salva com UTC+3, então buscamos um dia antes",
     });
 
-    logger.debug("✅ Vendas de hoje consultadas");
-
-    // Vendas do mês
-    const monthRevenue = await prisma.sale.aggregate({
-      where: {
-        saleDate: {
-          gte: startOfMonth,
+    // Executar todas as consultas em paralelo para melhor performance
+    const [
+      todayRevenue,
+      monthRevenue,
+      totalCustomers,
+      topProductsWithDetails,
+      topCustomersWithDetails,
+      lowStockProducts,
+      dailySales,
+    ] = await Promise.all([
+      // Vendas de hoje (entre 00:00:00 e 23:59:59)
+      prisma.sale.aggregate({
+        where: {
+          saleDate: {
+            gte: startOfToday,
+            lte: endOfToday,
+          },
         },
-      },
-      _sum: {
-        totalAmount: true,
-      },
-    });
-
-    logger.debug("✅ Vendas do mês consultadas");
-
-    // Total de clientes ativos
-    const totalCustomers = await prisma.customer.count({
-      where: { isActive: true },
-    });
-
-    logger.debug("✅ Total de clientes consultado");
-
-    // Produtos mais vendidos (últimos 30 dias)
-    const topProducts = await prisma.sale.groupBy({
-      by: ["productId"],
-      where: {
-        saleDate: {
-          gte: thirtyDaysAgo,
-        },
-      },
-      _sum: {
-        quantity: true,
-        totalAmount: true,
-      },
-      orderBy: {
         _sum: {
-          totalAmount: "desc",
+          totalAmount: true,
         },
-      },
-      take: 5,
-    });
+      }),
 
-    logger.debug("✅ Produtos mais vendidos consultados");
-
-    const topProductsWithDetails = await Promise.all(
-      topProducts.map(async (item) => {
-        const product = await prisma.product.findUnique({
-          where: { id: item.productId },
-          select: { name: true, category: true },
-        });
-        return {
-          name: product?.name || "Produto não encontrado",
-          category: product?.category || "",
-          total_sold: item._sum.quantity || 0,
-          revenue: Number(item._sum.totalAmount || 0),
-        };
-      })
-    );
-
-    // Top clientes (últimos 30 dias)
-    const topCustomers = await prisma.sale.groupBy({
-      by: ["customerId"],
-      where: {
-        saleDate: {
-          gte: thirtyDaysAgo,
+      // Vendas do mês
+      prisma.sale.aggregate({
+        where: {
+          saleDate: {
+            gte: startOfMonth,
+          },
         },
-        customerId: {
-          not: null,
-        },
-      },
-      _sum: {
-        quantity: true,
-        totalAmount: true,
-      },
-      orderBy: {
         _sum: {
-          totalAmount: "desc",
+          totalAmount: true,
         },
-      },
-      take: 5,
+      }),
+
+      // Total de clientes ativos
+      prisma.customer.count({
+        where: { isActive: true },
+      }),
+
+      // Produtos mais vendidos com JOIN (elimina N+1)
+      prisma.sale
+        .groupBy({
+          by: ["productId"],
+          where: {
+            saleDate: {
+              gte: thirtyDaysAgo,
+            },
+          },
+          _sum: {
+            quantity: true,
+            totalAmount: true,
+          },
+          orderBy: {
+            _sum: {
+              totalAmount: "desc",
+            },
+          },
+          take: 5,
+        })
+        .then(async (topProducts) => {
+          // Buscar detalhes dos produtos em uma única consulta
+          const productIds = topProducts.map((item) => item.productId);
+          const products = await prisma.product.findMany({
+            where: { id: { in: productIds } },
+            select: { id: true, name: true, category: true },
+          });
+
+          // Mapear os resultados
+          return topProducts.map((item) => {
+            const product = products.find((p) => p.id === item.productId);
+            return {
+              name: product?.name || "Produto não encontrado",
+              category: product?.category || "",
+              total_sold: item._sum.quantity || 0,
+              revenue: Number(item._sum.totalAmount || 0),
+            };
+          });
+        }),
+
+      // Top clientes com JOIN (elimina N+1)
+      prisma.sale
+        .groupBy({
+          by: ["customerId"],
+          where: {
+            saleDate: {
+              gte: thirtyDaysAgo,
+            },
+            customerId: {
+              not: null,
+            },
+          },
+          _sum: {
+            quantity: true,
+            totalAmount: true,
+          },
+          orderBy: {
+            _sum: {
+              totalAmount: "desc",
+            },
+          },
+          take: 5,
+        })
+        .then(async (topCustomers) => {
+          // Buscar detalhes dos clientes em uma única consulta
+          const customerIds = topCustomers
+            .map((item) => item.customerId)
+            .filter((id): id is number => id !== null);
+          const customers = await prisma.customer.findMany({
+            where: { id: { in: customerIds } },
+            select: { id: true, name: true, email: true },
+          });
+
+          // Mapear os resultados
+          return topCustomers.map((item) => {
+            const customer = customers.find((c) => c.id === item.customerId);
+            return {
+              name: customer?.name || "Cliente não encontrado",
+              email: customer?.email,
+              total_spent: Number(item._sum.totalAmount || 0),
+              total_items: item._sum.quantity || 0,
+            };
+          });
+        }),
+
+      // Produtos com estoque baixo
+      prisma.product.findMany({
+        where: {
+          stockQuantity: {
+            lt: 5,
+          },
+        },
+        select: {
+          name: true,
+          category: true,
+          stockQuantity: true,
+        },
+        orderBy: {
+          stockQuantity: "asc",
+        },
+      }),
+
+      // Vendas dos últimos 7 dias (incluindo hoje) - Ajustar para compensar timezone UTC+3 do banco
+      prisma.sale.groupBy({
+        by: ["saleDate"],
+        where: {
+          saleDate: {
+            gte: adjustedSevenDaysAgo,
+            lte: adjustedEndOfToday,
+          },
+        },
+        _sum: {
+          totalAmount: true,
+        },
+        _count: {
+          id: true,
+        },
+        orderBy: {
+          saleDate: "asc",
+        },
+      }),
+    ]);
+
+    logger.debug("✅ Todas as consultas executadas em paralelo");
+
+    // Logs de debug para verificar os dados
+    logger.debug("💰 Vendas de hoje:", {
+      startOfToday: startOfToday.toISOString(),
+      endOfToday: endOfToday.toISOString(),
+      totalRevenue: Number(todayRevenue._sum.totalAmount || 0),
     });
 
-    logger.debug("✅ Top clientes consultados");
-
-    const topCustomersWithDetails = await Promise.all(
-      topCustomers.map(async (item) => {
-        const customer = await prisma.customer.findUnique({
-          where: { id: item.customerId! },
-          select: { name: true, email: true },
-        });
-        return {
-          name: customer?.name || "Cliente não encontrado",
-          email: customer?.email,
-          total_spent: Number(item._sum.totalAmount || 0),
-          total_items: item._sum.quantity || 0,
-        };
-      })
-    );
-
-    // Produtos com estoque baixo
-    const lowStockProducts = await prisma.product.findMany({
-      where: {
-        stockQuantity: {
-          lt: 5,
-        },
-      },
-      select: {
-        name: true,
-        category: true,
-        stockQuantity: true,
-      },
-      orderBy: {
-        stockQuantity: "asc",
-      },
+    // Log detalhado da consulta de vendas diárias
+    logger.debug("🔍 Consulta de vendas diárias (ajustada para UTC+3):", {
+      adjustedSevenDaysAgo: adjustedSevenDaysAgo.toISOString(),
+      adjustedEndOfToday: adjustedEndOfToday.toISOString(),
+      originalSevenDaysAgo: sevenDaysAgo.toISOString(),
+      originalEndOfToday: endOfToday.toISOString(),
+      timezone: "Local (ajustado -1 dia para compensar UTC+3)",
     });
 
-    logger.debug("✅ Produtos com estoque baixo consultados");
-
-    // Vendas dos últimos 7 dias
-    const dailySales = await prisma.sale.groupBy({
-      by: ["saleDate"],
-      where: {
-        saleDate: {
-          gte: sevenDaysAgo,
-        },
-      },
-      _sum: {
-        totalAmount: true,
-      },
-      _count: {
-        id: true,
-      },
-      orderBy: {
-        saleDate: "asc",
-      },
+    // Log do resultado bruto do Prisma ORM
+    logger.debug("🔍 Resultado bruto do Prisma ORM:", {
+      dailySales: dailySales,
+      type: typeof dailySales,
+      isArray: Array.isArray(dailySales),
     });
 
-    logger.debug("✅ Vendas diárias consultadas");
+    // Converter o resultado do Prisma ORM para o formato esperado
+    const typedDailySales = dailySales as Array<{
+      saleDate: Date;
+      _sum: { totalAmount: any };
+      _count: { id: number };
+    }>;
 
-    const formattedDailySales = dailySales.map((item) => ({
-      date: item.saleDate.toISOString().split("T")[0],
-      revenue: Number(item._sum.totalAmount || 0),
-      sales_count: item._count.id,
-    }));
+    logger.debug("📊 Vendas diárias encontradas:", {
+      totalDays: typedDailySales.length,
+      dates: typedDailySales.map(
+        (item) => item.saleDate.toISOString().split("T")[0]
+      ),
+      revenues: typedDailySales.map((item) =>
+        Number(item._sum.totalAmount || 0)
+      ),
+      salesCounts: typedDailySales.map((item) => item._count.id),
+    });
+
+    // Debug: verificar cada venda individualmente
+    typedDailySales.forEach((sale, index) => {
+      const saleDate = new Date(sale.saleDate);
+      const year = saleDate.getFullYear();
+      const month = String(saleDate.getMonth() + 1).padStart(2, "0");
+      const day = String(saleDate.getDate()).padStart(2, "0");
+      const dateString = `${year}-${month}-${day}`;
+
+      logger.debug(`📦 Venda ${index + 1}:`, {
+        date: dateString,
+        revenue: Number(sale._sum.totalAmount || 0),
+        count: sale._count.id,
+        fullDate: sale.saleDate.toISOString(),
+        localDate: saleDate.toLocaleDateString(),
+        originalDate: sale.saleDate,
+      });
+    });
+
+    // Formatar vendas diárias - CORREÇÃO: forçar data local sem conversão de timezone
+    const formattedDailySales = typedDailySales.map((item) => {
+      // Forçar uso da data local sem conversão de timezone
+      const saleDate = new Date(item.saleDate);
+      const year = saleDate.getFullYear();
+      const month = String(saleDate.getMonth() + 1).padStart(2, "0");
+      const day = String(saleDate.getDate()).padStart(2, "0");
+      const dateString = `${year}-${month}-${day}`;
+
+      logger.debug("📅 Formatando data (forçando local):", {
+        original: item.saleDate.toISOString(),
+        localDate: saleDate.toLocaleDateString(),
+        formatted: dateString,
+        revenue: Number(item._sum.totalAmount || 0),
+        year: year,
+        month: month,
+        day: day,
+      });
+
+      return {
+        date: dateString,
+        revenue: Number(item._sum.totalAmount || 0),
+        sales_count: item._count.id,
+      };
+    });
+
+    // Preencher dias sem vendas com zero - CORREÇÃO: usar datas originais para exibição
+    const completeDailySales = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(sevenDaysAgo); // Usar data original para exibição
+      date.setDate(sevenDaysAgo.getDate() + i);
+
+      // Usar a mesma formatação forçando data local
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const dateString = `${year}-${month}-${day}`;
+
+      const existingDay = formattedDailySales.find(
+        (day) => day.date === dateString
+      );
+      const dayData = existingDay || {
+        date: dateString,
+        revenue: 0,
+        sales_count: 0,
+      };
+
+      completeDailySales.push(dayData);
+
+      // Debug: log de cada dia sendo processado
+      logger.debug(`📅 Processando dia ${i + 1}:`, {
+        date: dateString,
+        localDate: date.toLocaleDateString(),
+        hasData: !!existingDay,
+        revenue: dayData.revenue,
+        sales_count: dayData.sales_count,
+        note: "Data de exibição (original), dados vêm de consulta ajustada",
+      });
+    }
+
+    logger.debug("📈 Vendas diárias completas:", {
+      totalDays: completeDailySales.length,
+      dates: completeDailySales.map((day) => day.date),
+      revenues: completeDailySales.map((day) => day.revenue),
+    });
+
+    // Log adicional para verificar as datas geradas
+    logger.debug("📅 Datas geradas para preenchimento:", {
+      sevenDaysAgo: (() => {
+        const date = new Date(sevenDaysAgo);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      })(),
+      today: (() => {
+        const date = new Date(today);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      })(),
+      generatedDates: Array.from({ length: 7 }, (_, i) => {
+        const date = new Date(sevenDaysAgo);
+        date.setDate(sevenDaysAgo.getDate() + i);
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }),
+    });
 
     const dashboardData = {
       todayRevenue: Number(todayRevenue._sum.totalAmount || 0),
@@ -231,11 +428,34 @@ export async function GET() {
       topProducts: topProductsWithDetails,
       topCustomers: topCustomersWithDetails,
       lowStockProducts,
-      dailySales: formattedDailySales,
+      dailySales: completeDailySales,
     };
 
-    logger.info("✅ Dados do dashboard carregados com sucesso");
-    return NextResponse.json(dashboardData);
+    logger.info(
+      "✅ Dados do dashboard carregados com sucesso (otimizado + cache)"
+    );
+
+    // Log final dos dados que serão retornados
+    logger.debug("📤 Dados finais do dashboard:", {
+      todayRevenue: dashboardData.todayRevenue,
+      monthRevenue: dashboardData.monthRevenue,
+      totalCustomers: dashboardData.totalCustomers,
+      topProductsCount: dashboardData.topProducts.length,
+      topCustomersCount: dashboardData.topCustomers.length,
+      lowStockCount: dashboardData.lowStockProducts.length,
+      dailySalesCount: dashboardData.dailySales.length,
+      dailySalesDates: dashboardData.dailySales.map((day) => day.date),
+    });
+
+    // Criar resposta com cache público (5 minutos)
+    const response = NextResponse.json(dashboardData);
+
+    // Aplicar headers de cache
+    Object.entries(cacheUtils.public(300, 600)).forEach(([key, value]) => {
+      response.headers.set(key, value);
+    });
+
+    return response;
   } catch (error) {
     logger.error("❌ Erro ao carregar dados do dashboard:", error);
 
