@@ -33,6 +33,7 @@ export const saleSchema = z.object({
   unit_price: z.number().positive("Preço unitário deve ser positivo"),
   discount: z.number().min(0, "Desconto deve ser positivo").optional(),
   notes: z.string().optional(),
+  sale_date: z.string().min(10, "Data obrigatória"),
 });
 
 export type ProductInput = z.infer<typeof productSchema>;

@@ -245,6 +245,20 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
             />
           </div>
 
+          {/* Data da Venda */}
+          <div className="space-y-2">
+            <Label htmlFor="sale_date">Data da Venda *</Label>
+            <Input
+              id="sale_date"
+              type="date"
+              {...register("sale_date", { required: true })}
+              defaultValue={new Date().toISOString().split("T")[0]}
+            />
+            {errors.sale_date && (
+              <p className="text-sm text-red-500">{errors.sale_date.message}</p>
+            )}
+          </div>
+
           {/* Resumo da Venda */}
           {quantity > 0 && unitPrice > 0 && (
             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg space-y-2">
