@@ -1,5 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
-import { logger } from "@/lib/utils";
+import {
+  logger,
+  createDateWithoutTimezone,
+  createDateRange,
+} from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -47,10 +51,15 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Usar as novas funções para criar intervalo de datas sem timezone
+    const start = createDateWithoutTimezone(startDate);
+    const end = createDateWithoutTimezone(endDate);
+    end.setHours(23, 59, 59, 999); // Fim do dia final
+
     const whereClause: any = {
       saleDate: {
-        gte: new Date(startDate + "T00:00:00-03:00"),
-        lte: new Date(endDate + "T23:59:59-03:00"),
+        gte: start,
+        lte: end,
       },
     };
 

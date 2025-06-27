@@ -1,6 +1,13 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { saleSchema } from "@/lib/validations";
-import { logger } from "@/lib/utils";
+import {
+  logger,
+  createDateWithoutTimezone,
+  createDateRange,
+  forceDateWithoutTimezone,
+  createDateRangeWithTimezone,
+  dateToString,
+} from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -43,27 +50,23 @@ export async function GET(request: NextRequest) {
     // Construir filtro de data
     let dateWhereClause = {};
     if (dateFilter) {
-      // Filtro por data específica - usar timezone local
-      const targetDate = new Date(dateFilter + "T00:00:00");
-      const nextDay = new Date(dateFilter + "T00:00:00");
-      nextDay.setDate(targetDate.getDate() + 1);
+      // Filtro por data específica
+      const dateString = dateToString(createDateWithoutTimezone(dateFilter));
 
       dateWhereClause = {
-        saleDate: {
-          gte: targetDate,
-          lt: nextDay,
-        },
+        saleDate: dateString,
       };
     } else if (startDate && endDate) {
-      // Filtro por intervalo de datas - usar timezone local
-      const start = new Date(startDate + "T00:00:00");
-      const end = new Date(endDate + "T00:00:00");
-      end.setDate(end.getDate() + 1); // Incluir o dia final
+      // Filtro por intervalo de datas
+      const startDateString = dateToString(
+        createDateWithoutTimezone(startDate)
+      );
+      const endDateString = dateToString(createDateWithoutTimezone(endDate));
 
       dateWhereClause = {
         saleDate: {
-          gte: start,
-          lt: end,
+          gte: startDateString,
+          lte: endDateString,
         },
       };
     }
@@ -200,14 +203,6 @@ export async function POST(request: NextRequest) {
 
     // Criar venda e atualizar estoque em transação
     const result = await prisma.$transaction(async (tx) => {
-      // Criar venda com data local (sem timezone)
-      const now = new Date();
-      const localDate = new Date(
-        now.getFullYear(),
-        now.getMonth(),
-        now.getDate()
-      );
-
       const sale = await tx.sale.create({
         data: {
           productId: validatedData.product_id,
@@ -217,7 +212,7 @@ export async function POST(request: NextRequest) {
           totalAmount: total_amount,
           discount: discount,
           notes: validatedData.notes || null,
-          saleDate: localDate, // Data local (sem horário)
+          saleDate: new Date(),
         },
       });
 

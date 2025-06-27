@@ -1,0 +1,36 @@
+-- AlterTable
+ALTER TABLE "accounts" ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "customers" ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "login_credentials" ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "production_history" ALTER COLUMN "production_date" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "products" ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "sales" ALTER COLUMN "sale_date" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "sessions" ALTER COLUMN "expires" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "users" ALTER COLUMN "email_verified" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "created_at" SET DATA TYPE TIMESTAMP(0),
+ALTER COLUMN "updated_at" SET DATA TYPE TIMESTAMP(0);
+
+-- AlterTable
+ALTER TABLE "verification_tokens" ALTER COLUMN "expires" SET DATA TYPE TIMESTAMP(0);

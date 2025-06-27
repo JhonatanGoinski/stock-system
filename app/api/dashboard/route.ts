@@ -1,5 +1,15 @@
 import { NextResponse } from "next/server";
-import { logger, cacheUtils } from "@/lib/utils";
+import {
+  logger,
+  cacheUtils,
+  createDateWithoutTimezone,
+  generateLastDays,
+  dateToString,
+  forceDateWithoutTimezone,
+  createDateRangeWithTimezone,
+  createDateForQuery,
+  createDateRangeForQuery,
+} from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
 export const dynamic = "force-dynamic";
@@ -55,54 +65,68 @@ export async function GET() {
       );
     }
 
-    // CORREÇÃO: Ajustar datas para compensar timezone UTC+3 do banco
+    // Usar datas simples para consultas com compensação de timezone
     const today = new Date();
 
-    // Início do dia de hoje (00:00:00) - timezone local
-    const startOfToday = new Date(today);
-    startOfToday.setHours(0, 0, 0, 0);
+    // Compensar timezone: se estamos no dia 26 local, mas o banco salva UTC (dia 27),
+    // precisamos ajustar as consultas para pegar o dia correto
+    const todayStart = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,
+      0,
+      0,
+      0
+    );
+    const todayEnd = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      23,
+      59,
+      59,
+      999
+    );
 
-    // Fim do dia de hoje (23:59:59) - timezone local
-    const endOfToday = new Date(today);
-    endOfToday.setHours(23, 59, 59, 999);
+    // Para consultas que precisam pegar vendas do dia local, vamos usar um range que inclui
+    // o dia anterior (devido ao timezone UTC)
+    const localTodayStart = new Date(todayStart);
+    localTodayStart.setDate(todayStart.getDate() - 1); // Incluir vendas do dia anterior (UTC)
 
-    // Início do mês atual - timezone local
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    startOfMonth.setHours(0, 0, 0, 0);
+    const localTodayEnd = new Date(todayEnd);
+    localTodayEnd.setDate(todayEnd.getDate() + 1); // Incluir vendas do dia seguinte (UTC)
 
-    // 30 dias atrás (para produtos mais vendidos) - timezone local
+    // Início do mês atual
+    const startOfMonth = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      1,
+      0,
+      0,
+      0,
+      0
+    );
+
+    // 30 dias atrás
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
-    thirtyDaysAgo.setHours(0, 0, 0, 0);
 
-    // 7 dias atrás (para gráfico de vendas) - timezone local
+    // 7 dias atrás
     const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 6); // 6 dias atrás + hoje = 7 dias
-    sevenDaysAgo.setHours(0, 0, 0, 0);
+    sevenDaysAgo.setDate(today.getDate() - 6);
 
-    // AJUSTE: Como o banco salva com UTC+3, vamos buscar um dia antes para compensar
-    // Se hoje é dia 25, queremos buscar vendas do dia 24 no banco (que foram salvas como 25)
-    const adjustedSevenDaysAgo = new Date(sevenDaysAgo);
-    adjustedSevenDaysAgo.setDate(sevenDaysAgo.getDate() - 1);
-
-    const adjustedEndOfToday = new Date(endOfToday);
-    adjustedEndOfToday.setDate(endOfToday.getDate() - 1);
-
-    logger.info("📊 Iniciando consultas otimizadas do dashboard...");
-    logger.debug("�� Datas calculadas (ajustadas para UTC+3):", {
+    logger.info("📊 Iniciando consultas do dashboard...");
+    logger.debug("📅 Datas calculadas (com compensação de timezone):", {
       today: today.toISOString(),
-      startOfToday: startOfToday.toISOString(),
-      endOfToday: endOfToday.toISOString(),
+      todayStart: todayStart.toISOString(),
+      todayEnd: todayEnd.toISOString(),
+      localTodayStart: localTodayStart.toISOString(),
+      localTodayEnd: localTodayEnd.toISOString(),
+      startOfMonth: startOfMonth.toISOString(),
+      thirtyDaysAgo: thirtyDaysAgo.toISOString(),
       sevenDaysAgo: sevenDaysAgo.toISOString(),
-      adjustedSevenDaysAgo: adjustedSevenDaysAgo.toISOString(),
-      adjustedEndOfToday: adjustedEndOfToday.toISOString(),
-      todayDate: today.getDate(),
-      sevenDaysAgoDate: sevenDaysAgo.getDate(),
-      adjustedSevenDaysAgoDate: adjustedSevenDaysAgo.getDate(),
-      difference: today.getDate() - sevenDaysAgo.getDate(),
-      expectedDays: "7 dias (incluindo hoje)",
-      timezone: "Local (ajustado -1 dia para compensar UTC+3 do banco)",
-      note: "Banco salva com UTC+3, então buscamos um dia antes",
+      note: "Compensando timezone UTC do banco",
     });
 
     // Executar todas as consultas em paralelo para melhor performance
@@ -115,12 +139,12 @@ export async function GET() {
       lowStockProducts,
       dailySales,
     ] = await Promise.all([
-      // Vendas de hoje (entre 00:00:00 e 23:59:59)
+      // Vendas de hoje (com compensação de timezone)
       prisma.sale.aggregate({
         where: {
           saleDate: {
-            gte: startOfToday,
-            lte: endOfToday,
+            gte: localTodayStart,
+            lte: localTodayEnd,
           },
         },
         _sum: {
@@ -247,43 +271,62 @@ export async function GET() {
         },
       }),
 
-      // Vendas dos últimos 7 dias (incluindo hoje) - Ajustar para compensar timezone UTC+3 do banco
-      prisma.sale.groupBy({
-        by: ["saleDate"],
-        where: {
-          saleDate: {
-            gte: adjustedSevenDaysAgo,
-            lte: adjustedEndOfToday,
+      // Vendas dos últimos 7 dias (incluindo hoje) com compensação de timezone
+      prisma.sale
+        .findMany({
+          where: {
+            saleDate: {
+              gte: sevenDaysAgo, // Buscar dos últimos 7 dias
+              lte: localTodayEnd, // Até o final de hoje (com compensação)
+            },
           },
-        },
-        _sum: {
-          totalAmount: true,
-        },
-        _count: {
-          id: true,
-        },
-        orderBy: {
-          saleDate: "asc",
-        },
-      }),
+          select: {
+            saleDate: true,
+            totalAmount: true,
+            id: true,
+          },
+          orderBy: {
+            saleDate: "asc",
+          },
+        })
+        .then((sales) => {
+          // Agrupar manualmente por data local SEM compensação adicional
+          const groupedByDate = new Map();
+
+          sales.forEach((sale) => {
+            // Usar a data como está, sem compensação adicional
+            const localDate = new Date(sale.saleDate);
+            const dateString = dateToString(localDate);
+
+            if (!groupedByDate.has(dateString)) {
+              groupedByDate.set(dateString, {
+                saleDate: localDate,
+                _sum: { totalAmount: 0 },
+                _count: { id: 0 },
+              });
+            }
+
+            const group = groupedByDate.get(dateString);
+            group._sum.totalAmount += Number(sale.totalAmount);
+            group._count.id += 1;
+          });
+
+          return Array.from(groupedByDate.values());
+        }),
     ]);
 
     logger.debug("✅ Todas as consultas executadas em paralelo");
 
     // Logs de debug para verificar os dados
     logger.debug("💰 Vendas de hoje:", {
-      startOfToday: startOfToday.toISOString(),
-      endOfToday: endOfToday.toISOString(),
+      todayStart: todayStart.toISOString(),
       totalRevenue: Number(todayRevenue._sum.totalAmount || 0),
     });
 
     // Log detalhado da consulta de vendas diárias
-    logger.debug("🔍 Consulta de vendas diárias (ajustada para UTC+3):", {
-      adjustedSevenDaysAgo: adjustedSevenDaysAgo.toISOString(),
-      adjustedEndOfToday: adjustedEndOfToday.toISOString(),
-      originalSevenDaysAgo: sevenDaysAgo.toISOString(),
-      originalEndOfToday: endOfToday.toISOString(),
-      timezone: "Local (ajustado -1 dia para compensar UTC+3)",
+    logger.debug("🔍 Consulta de vendas diárias:", {
+      sevenDaysAgo: sevenDaysAgo.toISOString(),
+      todayEnd: todayEnd.toISOString(),
     });
 
     // Log do resultado bruto do Prisma ORM
@@ -302,9 +345,7 @@ export async function GET() {
 
     logger.debug("📊 Vendas diárias encontradas:", {
       totalDays: typedDailySales.length,
-      dates: typedDailySales.map(
-        (item) => item.saleDate.toISOString().split("T")[0]
-      ),
+      dates: typedDailySales.map((item) => dateToString(item.saleDate)),
       revenues: typedDailySales.map((item) =>
         Number(item._sum.totalAmount || 0)
       ),
@@ -313,39 +354,30 @@ export async function GET() {
 
     // Debug: verificar cada venda individualmente
     typedDailySales.forEach((sale, index) => {
-      const saleDate = new Date(sale.saleDate);
-      const year = saleDate.getFullYear();
-      const month = String(saleDate.getMonth() + 1).padStart(2, "0");
-      const day = String(saleDate.getDate()).padStart(2, "0");
-      const dateString = `${year}-${month}-${day}`;
+      const dateString = dateToString(sale.saleDate);
 
       logger.debug(`📦 Venda ${index + 1}:`, {
         date: dateString,
         revenue: Number(sale._sum.totalAmount || 0),
         count: sale._count.id,
         fullDate: sale.saleDate.toISOString(),
-        localDate: saleDate.toLocaleDateString(),
+        localDate: sale.saleDate.toLocaleDateString(),
         originalDate: sale.saleDate,
       });
     });
 
-    // Formatar vendas diárias - CORREÇÃO: forçar data local sem conversão de timezone
+    // Formatar vendas diárias sem compensação adicional
     const formattedDailySales = typedDailySales.map((item) => {
-      // Forçar uso da data local sem conversão de timezone
-      const saleDate = new Date(item.saleDate);
-      const year = saleDate.getFullYear();
-      const month = String(saleDate.getMonth() + 1).padStart(2, "0");
-      const day = String(saleDate.getDate()).padStart(2, "0");
-      const dateString = `${year}-${month}-${day}`;
+      // Usar a data como está, sem compensação adicional
+      const localDate = new Date(item.saleDate);
+      const dateString = dateToString(localDate);
 
-      logger.debug("📅 Formatando data (forçando local):", {
+      logger.debug("📅 Formatando data (sem compensação adicional):", {
         original: item.saleDate.toISOString(),
-        localDate: saleDate.toLocaleDateString(),
+        localDate: localDate.toISOString(),
         formatted: dateString,
         revenue: Number(item._sum.totalAmount || 0),
-        year: year,
-        month: month,
-        day: day,
+        note: "Usando data como está",
       });
 
       return {
@@ -355,18 +387,21 @@ export async function GET() {
       };
     });
 
-    // Preencher dias sem vendas com zero - CORREÇÃO: usar datas originais para exibição
-    const completeDailySales = [];
-    for (let i = 0; i < 7; i++) {
-      const date = new Date(sevenDaysAgo); // Usar data original para exibição
-      date.setDate(sevenDaysAgo.getDate() + i);
+    // CORREÇÃO: Gerar datas corretas para os últimos 7 dias
+    const last7Days: string[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today);
+      date.setDate(today.getDate() - i);
+      last7Days.push(dateToString(date));
+    }
 
-      // Usar a mesma formatação forçando data local
-      const year = date.getFullYear();
-      const month = String(date.getMonth() + 1).padStart(2, "0");
-      const day = String(date.getDate()).padStart(2, "0");
-      const dateString = `${year}-${month}-${day}`;
+    logger.debug("📅 Datas geradas para os últimos 7 dias:", {
+      today: today.toISOString(),
+      last7Days: last7Days,
+    });
 
+    // Preencher dias sem vendas com zero usando as datas corretas
+    const completeDailySales = last7Days.map((dateString) => {
       const existingDay = formattedDailySales.find(
         (day) => day.date === dateString
       );
@@ -376,49 +411,22 @@ export async function GET() {
         sales_count: 0,
       };
 
-      completeDailySales.push(dayData);
-
       // Debug: log de cada dia sendo processado
-      logger.debug(`📅 Processando dia ${i + 1}:`, {
+      logger.debug(`📅 Processando dia:`, {
         date: dateString,
-        localDate: date.toLocaleDateString(),
         hasData: !!existingDay,
         revenue: dayData.revenue,
         sales_count: dayData.sales_count,
-        note: "Data de exibição (original), dados vêm de consulta ajustada",
+        note: "Data corrigida",
       });
-    }
+
+      return dayData;
+    });
 
     logger.debug("📈 Vendas diárias completas:", {
       totalDays: completeDailySales.length,
       dates: completeDailySales.map((day) => day.date),
       revenues: completeDailySales.map((day) => day.revenue),
-    });
-
-    // Log adicional para verificar as datas geradas
-    logger.debug("📅 Datas geradas para preenchimento:", {
-      sevenDaysAgo: (() => {
-        const date = new Date(sevenDaysAgo);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      })(),
-      today: (() => {
-        const date = new Date(today);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      })(),
-      generatedDates: Array.from({ length: 7 }, (_, i) => {
-        const date = new Date(sevenDaysAgo);
-        date.setDate(sevenDaysAgo.getDate() + i);
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, "0");
-        const day = String(date.getDate()).padStart(2, "0");
-        return `${year}-${month}-${day}`;
-      }),
     });
 
     const dashboardData = {
@@ -447,11 +455,11 @@ export async function GET() {
       dailySalesDates: dashboardData.dailySales.map((day) => day.date),
     });
 
-    // Criar resposta com cache público (5 minutos)
+    // Criar resposta SEM cache temporariamente
     const response = NextResponse.json(dashboardData);
 
-    // Aplicar headers de cache
-    Object.entries(cacheUtils.public(300, 600)).forEach(([key, value]) => {
+    // Aplicar headers SEM cache
+    Object.entries(cacheUtils.noCache()).forEach(([key, value]) => {
       response.headers.set(key, value);
     });
 

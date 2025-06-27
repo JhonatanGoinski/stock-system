@@ -50,6 +50,7 @@
     "next": "14.2.16",
     "next-auth": "^4.24.11",
     "next-themes": "latest",
+    "node-fetch": "^3.3.2",
     "nodemailer": "latest",
     "prisma": "latest",
     "react": "^18",

@@ -24,8 +24,7 @@ import { ReportsPage } from "@/components/reports-page";
 import { MobileHeader } from "@/components/mobile-header";
 import { MobileTabs } from "@/components/mobile-tabs";
 import { MobileDashboardStats } from "@/components/mobile-dashboard-stats";
-import { formatCurrency } from "@/lib/utils";
-import { toUTCDate, getCurrentUTCDate } from "@/lib/utils";
+import { formatCurrency, getCurrentDateString } from "@/lib/utils";
 import type { Product, Customer, SaleWithDetails } from "@/lib/prisma";
 import {
   Plus,
@@ -282,14 +281,6 @@ function DashboardContent() {
       ...prev,
       [productId]: Math.max(0, quantity), // Não permite valores negativos
     }));
-  };
-
-  const getCurrentDateString = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return `${year}-${month}-${day}`;
   };
 
   const handleProductionDateChange = (productId: number, date: string) => {

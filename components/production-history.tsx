@@ -13,7 +13,7 @@ import {
   ChevronUp,
   Filter,
 } from "lucide-react";
-import { formatUTCDate } from "@/lib/utils";
+import { formatDateForDisplay } from "@/lib/utils";
 
 interface ProductionRecord {
   id: number;
@@ -101,8 +101,7 @@ export function ProductionHistory({
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("pt-BR");
+    return formatDateForDisplay(dateString);
   };
 
   const totalProduced = filteredHistory.reduce(

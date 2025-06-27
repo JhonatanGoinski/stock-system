@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  createDateWithoutTimezone,
+  forceDateWithoutTimezone,
+} from "@/lib/utils";
 
 export async function GET(
   request: NextRequest,
@@ -62,19 +66,17 @@ export async function POST(
       );
     }
 
-    // Usar a data fornecida ou a data atual
-    let dateToUse: Date;
-    if (productionDate) {
-      // Usar exatamente a data fornecida, criando uma data no início do dia
-      dateToUse = new Date(productionDate + "T00:00:00");
-    } else {
-      dateToUse = new Date();
-    }
+    // Usar a data fornecida ou a data atual - sempre forçada sem timezone
+    const dateToUse = productionDate
+      ? forceDateWithoutTimezone(productionDate)
+      : forceDateWithoutTimezone(new Date());
 
     console.log("📡 Adicionando produção:", {
       productId,
       quantity,
       productionDate: dateToUse,
+      productionDateISO: dateToUse.toISOString(),
+      productionDateString: dateToUse.toLocaleDateString("pt-BR"),
       notes,
     });
 
@@ -131,6 +133,8 @@ export async function POST(
       quantity,
       newStock: result.updatedProduct.stockQuantity,
       productionDate: dateToUse,
+      productionDateISO: dateToUse.toISOString(),
+      productionDateString: dateToUse.toLocaleDateString("pt-BR"),
     });
 
     return NextResponse.json({

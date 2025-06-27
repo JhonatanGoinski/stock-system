@@ -247,19 +247,41 @@ export function DashboardStats() {
                 <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                 <XAxis
                   dataKey="date"
-                  tickFormatter={(value) =>
-                    new Date(value).toLocaleDateString("pt-BR", {
-                      day: "2-digit",
-                      month: "2-digit",
-                    })
-                  }
+                  tickFormatter={(value) => {
+                    // Debug: verificar o que está sendo passado
+                    console.log(
+                      "🔍 XAxis tickFormatter value:",
+                      value,
+                      typeof value
+                    );
+
+                    // Verificar se value é uma string válida
+                    if (typeof value !== "string" || !value.includes("-")) {
+                      console.log(
+                        "⚠️ Value inválido, retornando como está:",
+                        value
+                      );
+                      return value;
+                    }
+                    // Usar a data como string, sem conversão de timezone
+                    const [year, month, day] = value.split("-");
+                    const formatted = `${day}/${month}`;
+                    console.log("✅ Data formatada:", formatted);
+                    return formatted;
+                  }}
                   className="text-muted-foreground"
                 />
                 <YAxis className="text-muted-foreground" />
                 <Tooltip
-                  labelFormatter={(value) =>
-                    new Date(value).toLocaleDateString("pt-BR")
-                  }
+                  labelFormatter={(value) => {
+                    // Verificar se value é uma string válida
+                    if (typeof value !== "string" || !value.includes("-")) {
+                      return value;
+                    }
+                    // Usar a data como string, sem conversão de timezone
+                    const [year, month, day] = value.split("-");
+                    return `${day}/${month}/${year}`;
+                  }}
                   formatter={(value: number) => [
                     formatCurrency(value),
                     "Faturamento",
