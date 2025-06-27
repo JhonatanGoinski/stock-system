@@ -890,9 +890,14 @@ function DashboardContent() {
                                 {formatCurrency(Number(sale.totalAmount))}
                               </TableCell>
                               <TableCell>
-                                {new Date(sale.saleDate).toLocaleDateString(
-                                  "pt-BR"
-                                )}
+                                {typeof sale.saleDate === "string" &&
+                                sale.saleDate
+                                  ? String(sale.saleDate)
+                                      .split("T")[0]
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")
+                                  : ""}
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2">
@@ -1215,9 +1220,14 @@ function DashboardContent() {
                                 {formatCurrency(Number(sale.totalAmount))}
                               </TableCell>
                               <TableCell>
-                                {new Date(sale.saleDate).toLocaleDateString(
-                                  "pt-BR"
-                                )}
+                                {typeof sale.saleDate === "string" &&
+                                sale.saleDate
+                                  ? String(sale.saleDate)
+                                      .split("T")[0]
+                                      .split("-")
+                                      .reverse()
+                                      .join("/")
+                                  : ""}
                               </TableCell>
                               <TableCell>
                                 <div className="flex gap-2">

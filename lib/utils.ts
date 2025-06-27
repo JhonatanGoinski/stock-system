@@ -438,7 +438,7 @@ export function isVercel(): boolean {
  */
 export function createDateRangeForEnvironment(date?: Date | string) {
   const inputDate = date ? new Date(date) : new Date();
-  
+
   // Criar data base com horário zerado
   const baseDate = new Date(
     inputDate.getFullYear(),
@@ -467,7 +467,7 @@ export function createDateRangeForEnvironment(date?: Date | string) {
     return {
       start: startOfDay,
       end: endOfDay,
-      note: "Vercel (UTC) - sem compensação de timezone"
+      note: "Vercel (UTC) - sem compensação de timezone",
     };
   } else {
     // Ambiente local - compensar timezone
@@ -480,7 +480,7 @@ export function createDateRangeForEnvironment(date?: Date | string) {
     return {
       start: localStart,
       end: localEnd,
-      note: "Local - com compensação de timezone"
+      note: "Local - com compensação de timezone",
     };
   }
 }

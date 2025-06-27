@@ -151,20 +151,25 @@ export function MobileDashboardStats() {
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis
                 dataKey="date"
-                tickFormatter={(value) =>
-                  new Date(value).toLocaleDateString("pt-BR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                  })
-                }
+                tickFormatter={(value) => {
+                  if (typeof value === "string" && value.includes("-")) {
+                    const [ano, mes, dia] = value.split("-");
+                    return `${dia}/${mes}`;
+                  }
+                  return value;
+                }}
                 className="text-muted-foreground"
                 fontSize={12}
               />
               <YAxis className="text-muted-foreground" fontSize={12} />
               <Tooltip
-                labelFormatter={(value) =>
-                  new Date(value).toLocaleDateString("pt-BR")
-                }
+                labelFormatter={(value) => {
+                  if (typeof value === "string" && value.includes("-")) {
+                    const [ano, mes, dia] = value.split("-");
+                    return `${dia}/${mes}/${ano}`;
+                  }
+                  return value;
+                }}
                 formatter={(value: number) => [
                   formatCurrency(value),
                   "Faturamento",
