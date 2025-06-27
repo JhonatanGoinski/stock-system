@@ -212,7 +212,7 @@ export async function POST(request: NextRequest) {
           totalAmount: total_amount,
           discount: discount,
           notes: validatedData.notes || null,
-          saleDate: new Date(),
+          saleDate: createDateWithoutTimezone(),
         },
       });
 
