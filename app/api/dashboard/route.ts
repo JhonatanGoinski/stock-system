@@ -5,6 +5,7 @@ import {
   createDateWithoutTimezone,
   generateLastDays,
   dateToString,
+  dateToStringUTC,
   forceDateWithoutTimezone,
   createDateRangeWithTimezone,
   createDateForQuery,
@@ -271,7 +272,7 @@ export async function GET() {
           sales.forEach((sale) => {
             // Usar a data como está, sem compensação adicional
             const localDate = new Date(sale.saleDate);
-            const dateString = dateToString(localDate);
+            const dateString = dateToStringUTC(localDate);
 
             if (!groupedByDate.has(dateString)) {
               groupedByDate.set(dateString, {
@@ -320,7 +321,7 @@ export async function GET() {
 
     logger.debug("📊 Vendas diárias encontradas:", {
       totalDays: typedDailySales.length,
-      dates: typedDailySales.map((item) => dateToString(item.saleDate)),
+      dates: typedDailySales.map((item) => dateToStringUTC(item.saleDate)),
       revenues: typedDailySales.map((item) =>
         Number(item._sum.totalAmount || 0)
       ),
@@ -329,7 +330,7 @@ export async function GET() {
 
     // Debug: verificar cada venda individualmente
     typedDailySales.forEach((sale, index) => {
-      const dateString = dateToString(sale.saleDate);
+      const dateString = dateToStringUTC(sale.saleDate);
 
       logger.debug(`📦 Venda ${index + 1}:`, {
         date: dateString,
@@ -345,7 +346,7 @@ export async function GET() {
     const formattedDailySales = typedDailySales.map((item) => {
       // Usar a data como está, sem compensação adicional
       const localDate = new Date(item.saleDate);
-      const dateString = dateToString(localDate);
+      const dateString = dateToStringUTC(localDate);
 
       logger.debug("📅 Formatando data (sem compensação adicional):", {
         original: item.saleDate.toISOString(),
@@ -367,7 +368,7 @@ export async function GET() {
     for (let i = 6; i >= 0; i--) {
       const date = new Date(today);
       date.setDate(today.getDate() - i);
-      last7Days.push(dateToString(date));
+      last7Days.push(dateToStringUTC(date));
     }
 
     logger.debug("📅 Datas geradas para os últimos 7 dias:", {

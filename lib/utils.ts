@@ -174,6 +174,24 @@ export function forceDateWithoutTimezone(date: Date | string): Date {
 }
 
 /**
+ * Converte uma data para string no formato YYYY-MM-DD SEM considerar timezone
+ * @param date - Data a ser convertida
+ * @returns String no formato YYYY-MM-DD
+ */
+export function dateToStringUTC(date: Date): string {
+  if (!date || isNaN(date.getTime())) {
+    console.warn("⚠️ Data inválida recebida:", date);
+    return "";
+  }
+
+  // Usar métodos UTC para evitar conversão de timezone
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(date.getUTCDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
  * Converte uma data para string no formato YYYY-MM-DD
  * @param date - Data a ser convertida
  * @returns String no formato YYYY-MM-DD
