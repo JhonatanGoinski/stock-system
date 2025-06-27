@@ -174,7 +174,7 @@ export function forceDateWithoutTimezone(date: Date | string): Date {
 }
 
 /**
- * Converte uma data para string no formato YYYY-MM-DD SEM considerar timezone
+ * Converte uma data para string no formato YYYY-MM-DD usando a data local
  * @param date - Data a ser convertida
  * @returns String no formato YYYY-MM-DD
  */
@@ -184,10 +184,10 @@ export function dateToStringUTC(date: Date): string {
     return "";
   }
 
-  // Usar métodos UTC para evitar conversão de timezone
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
+  // Usar a data local (não UTC) para mostrar o dia correto
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 }
 
@@ -479,26 +479,20 @@ export function createDateRangeForEnvironment(date?: Date | string) {
     999
   );
 
-  // Se estamos na Vercel (UTC), não precisamos compensar timezone
-  // Se estamos localmente, compensar para pegar o dia correto
-  if (isVercel()) {
-    return {
-      start: startOfDay,
-      end: endOfDay,
-      note: "Vercel (UTC) - sem compensação de timezone",
-    };
-  } else {
-    // Ambiente local - compensar timezone
-    const localStart = new Date(startOfDay);
-    localStart.setDate(startOfDay.getDate() - 1);
+  // O banco salva em UTC, então precisamos compensar para pegar a data local correta
+  // Se estamos no dia 26 às 23:44 (Brasil), no banco fica dia 27 às 02:44 (UTC)
+  // Para pegar vendas do dia 26, precisamos incluir o período UTC que corresponde ao dia 26 local
 
-    const localEnd = new Date(endOfDay);
-    localEnd.setDate(endOfDay.getDate() + 1);
+  // Compensar 3 horas (UTC-3 do Brasil)
+  const localStart = new Date(startOfDay);
+  localStart.setHours(localStart.getHours() - 3); // Voltar 3 horas para pegar o início do dia local
 
-    return {
-      start: localStart,
-      end: localEnd,
-      note: "Local - com compensação de timezone",
-    };
-  }
+  const localEnd = new Date(endOfDay);
+  localEnd.setHours(localEnd.getHours() - 3); // Voltar 3 horas para pegar o fim do dia local
+
+  return {
+    start: localStart,
+    end: localEnd,
+    note: "Compensando UTC-3 do Brasil para pegar data local correta",
+  };
 }
