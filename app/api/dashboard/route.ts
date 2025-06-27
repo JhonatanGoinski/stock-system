@@ -9,6 +9,8 @@ import {
   createDateRangeWithTimezone,
   createDateForQuery,
   createDateRangeForQuery,
+  createDateRangeForEnvironment,
+  isVercel,
 } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
@@ -65,37 +67,11 @@ export async function GET() {
       );
     }
 
-    // Usar datas simples para consultas com compensação de timezone
+    // Usar a nova função que detecta o ambiente automaticamente
     const today = new Date();
-
-    // Compensar timezone: se estamos no dia 26 local, mas o banco salva UTC (dia 27),
-    // precisamos ajustar as consultas para pegar o dia correto
-    const todayStart = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
-    const todayEnd = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      23,
-      59,
-      59,
-      999
-    );
-
-    // Para consultas que precisam pegar vendas do dia local, vamos usar um range que inclui
-    // o dia anterior (devido ao timezone UTC)
-    const localTodayStart = new Date(todayStart);
-    localTodayStart.setDate(todayStart.getDate() - 1); // Incluir vendas do dia anterior (UTC)
-
-    const localTodayEnd = new Date(todayEnd);
-    localTodayEnd.setDate(todayEnd.getDate() + 1); // Incluir vendas do dia seguinte (UTC)
+    const todayRange = createDateRangeForEnvironment();
+    const localTodayStart = todayRange.start;
+    const localTodayEnd = todayRange.end;
 
     // Início do mês atual
     const startOfMonth = new Date(
@@ -117,16 +93,15 @@ export async function GET() {
     sevenDaysAgo.setDate(today.getDate() - 6);
 
     logger.info("📊 Iniciando consultas do dashboard...");
-    logger.debug("📅 Datas calculadas (com compensação de timezone):", {
+    logger.debug("📅 Datas calculadas (ambiente detectado):", {
       today: today.toISOString(),
-      todayStart: todayStart.toISOString(),
-      todayEnd: todayEnd.toISOString(),
       localTodayStart: localTodayStart.toISOString(),
       localTodayEnd: localTodayEnd.toISOString(),
       startOfMonth: startOfMonth.toISOString(),
       thirtyDaysAgo: thirtyDaysAgo.toISOString(),
       sevenDaysAgo: sevenDaysAgo.toISOString(),
-      note: "Compensando timezone UTC do banco",
+      environment: isVercel() ? "Vercel (UTC)" : "Local",
+      note: todayRange.note,
     });
 
     // Executar todas as consultas em paralelo para melhor performance
@@ -319,14 +294,14 @@ export async function GET() {
 
     // Logs de debug para verificar os dados
     logger.debug("💰 Vendas de hoje:", {
-      todayStart: todayStart.toISOString(),
+      localTodayStart: localTodayStart.toISOString(),
       totalRevenue: Number(todayRevenue._sum.totalAmount || 0),
     });
 
     // Log detalhado da consulta de vendas diárias
     logger.debug("🔍 Consulta de vendas diárias:", {
       sevenDaysAgo: sevenDaysAgo.toISOString(),
-      todayEnd: todayEnd.toISOString(),
+      localTodayEnd: localTodayEnd.toISOString(),
     });
 
     // Log do resultado bruto do Prisma ORM

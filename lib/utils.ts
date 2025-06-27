@@ -416,3 +416,71 @@ export function formatUTCDate(dateString: string): string {
   const date = new Date(dateString);
   return date.toLocaleDateString("pt-BR", { timeZone: "UTC" });
 }
+
+/**
+ * Detecta se estamos em ambiente de produção (Vercel)
+ */
+export function isProduction(): boolean {
+  return process.env.NODE_ENV === "production" || process.env.VERCEL === "1";
+}
+
+/**
+ * Detecta se estamos na Vercel especificamente
+ */
+export function isVercel(): boolean {
+  return process.env.VERCEL === "1";
+}
+
+/**
+ * Cria datas para consulta considerando o ambiente (local vs produção)
+ * @param date - Data opcional, se não fornecida usa a data atual
+ * @returns Objeto com start e end dates ajustados para o ambiente
+ */
+export function createDateRangeForEnvironment(date?: Date | string) {
+  const inputDate = date ? new Date(date) : new Date();
+  
+  // Criar data base com horário zerado
+  const baseDate = new Date(
+    inputDate.getFullYear(),
+    inputDate.getMonth(),
+    inputDate.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
+
+  const startOfDay = new Date(baseDate);
+  const endOfDay = new Date(
+    baseDate.getFullYear(),
+    baseDate.getMonth(),
+    baseDate.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+
+  // Se estamos na Vercel (UTC), não precisamos compensar timezone
+  // Se estamos localmente, compensar para pegar o dia correto
+  if (isVercel()) {
+    return {
+      start: startOfDay,
+      end: endOfDay,
+      note: "Vercel (UTC) - sem compensação de timezone"
+    };
+  } else {
+    // Ambiente local - compensar timezone
+    const localStart = new Date(startOfDay);
+    localStart.setDate(startOfDay.getDate() - 1);
+
+    const localEnd = new Date(endOfDay);
+    localEnd.setDate(endOfDay.getDate() + 1);
+
+    return {
+      start: localStart,
+      end: localEnd,
+      note: "Local - com compensação de timezone"
+    };
+  }
+}
