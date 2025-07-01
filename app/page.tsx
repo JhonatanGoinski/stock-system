@@ -958,6 +958,31 @@ function DashboardContent() {
                       </Button>
                     </div>
                   </div>
+
+                  {/* Filtro select de produtos - Mobile */}
+                  <div className="mb-4 flex flex-col gap-2">
+                    <label className="text-sm font-medium">
+                      Filtrar produto:
+                    </label>
+                    <select
+                      className="border rounded px-3 py-2 text-sm w-full"
+                      value={selectedProductId || ""}
+                      onChange={(e) => {
+                        setSelectedProductId(
+                          e.target.value ? Number(e.target.value) : null
+                        );
+                      }}
+                    >
+                      <option value="">Todos os produtos</option>
+                      {products.map((prod) => (
+                        <option key={prod.id} value={prod.id}>
+                          {prod.name} ({prod.category}
+                          {prod.size ? `, ${prod.size}` : ""})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
                   <Card>
                     <CardContent className="p-0">
                       <div className="max-h-[600px] overflow-y-auto">
