@@ -44,7 +44,8 @@ export function ProductionHistory({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [filterDate, setFilterDate] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const INITIAL_LIMIT = 5;
@@ -55,7 +56,7 @@ export function ProductionHistory({
 
   useEffect(() => {
     applyFilters();
-  }, [history, filterDate]);
+  }, [history, startDate, endDate]);
 
   const fetchHistory = async () => {
     try {
@@ -79,22 +80,42 @@ export function ProductionHistory({
   const applyFilters = () => {
     let filtered = [...history];
 
-    if (filterDate) {
-      // Converter a data do filtro para formato brasileiro para comparação
-      const filterDateBR = new Date(filterDate).toLocaleDateString("pt-BR");
-      console.log("🔍 Aplicando filtro:", {
-        filterDate,
-        filterDateBR,
+    if (startDate || endDate) {
+      console.log("🔍 Aplicando filtros:", {
+        startDate,
+        endDate,
         totalRecords: history.length,
       });
 
       filtered = filtered.filter((record) => {
-        const matches = record.productionDate === filterDateBR;
+        // Converter a data do registro (formato DD/MM/YYYY) para Date
+        const [day, month, year] = record.productionDate.split("/");
+        const recordDate = new Date(
+          parseInt(year),
+          parseInt(month) - 1,
+          parseInt(day)
+        );
+
+        let matches = true;
+
+        if (startDate) {
+          const startDateObj = new Date(startDate);
+          matches = matches && recordDate >= startDateObj;
+        }
+
+        if (endDate) {
+          const endDateObj = new Date(endDate);
+          matches = matches && recordDate <= endDateObj;
+        }
+
         console.log("📅 Comparando:", {
           recordDate: record.productionDate,
-          filterDate: filterDateBR,
+          recordDateObj: recordDate,
+          startDate,
+          endDate,
           matches,
         });
+
         return matches;
       });
     }
@@ -103,7 +124,8 @@ export function ProductionHistory({
   };
 
   const clearFilters = () => {
-    setFilterDate("");
+    setStartDate("");
+    setEndDate("");
     setShowFilters(false);
   };
 
@@ -182,19 +204,30 @@ export function ProductionHistory({
 
                 {showFilters && (
                   <div className="space-y-3">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-end gap-3">
                       <div className="flex-1">
                         <label className="text-xs text-muted-foreground mb-1 block">
-                          Data
+                          Data Inicial
                         </label>
                         <Input
                           type="date"
-                          value={filterDate}
-                          onChange={(e) => setFilterDate(e.target.value)}
+                          value={startDate}
+                          onChange={(e) => setStartDate(e.target.value)}
                           className="h-8 text-xs"
                         />
                       </div>
-                      <div className="flex items-end">
+                      <div className="flex-1">
+                        <label className="text-xs text-muted-foreground mb-1 block">
+                          Data Final
+                        </label>
+                        <Input
+                          type="date"
+                          value={endDate}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                      </div>
+                      <div>
                         <Button
                           variant="outline"
                           size="sm"
@@ -205,7 +238,7 @@ export function ProductionHistory({
                         </Button>
                       </div>
                     </div>
-                    {filterDate && (
+                    {(startDate || endDate) && (
                       <div className="text-xs text-muted-foreground">
                         {filteredHistory.length} registros encontrados
                       </div>
