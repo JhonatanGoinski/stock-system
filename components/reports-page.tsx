@@ -153,6 +153,16 @@ export function ReportsPage() {
 
   const exportToExcel = async () => {
     try {
+      // Mostrar feedback visual
+      const exportButton = document.querySelector(
+        "[data-export-button]"
+      ) as HTMLButtonElement;
+      if (exportButton) {
+        exportButton.disabled = true;
+        exportButton.innerHTML =
+          '<div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>Exportando...';
+      }
+
       const params = new URLSearchParams({
         startDate: filters.startDate,
         endDate: filters.endDate,
@@ -162,19 +172,44 @@ export function ReportsPage() {
       });
 
       const response = await fetch(`/api/reports?${params}`);
+
+      if (!response.ok) {
+        throw new Error(`Erro HTTP: ${response.status}`);
+      }
+
       const blob = await response.blob();
 
+      // Criar URL para download
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `relatorio-vendas-${filters.startDate}-${filters.endDate}.csv`;
+
+      // Adicionar ao DOM, clicar e remover
       document.body.appendChild(a);
       a.click();
+
+      // Limpar recursos
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+
+      // Feedback de sucesso
+      alert("Relatório exportado com sucesso! O arquivo será aberto no Excel.");
     } catch (error) {
       console.error("Erro ao exportar relatório:", error);
-      alert("Erro ao exportar relatório");
+      alert(
+        "Erro ao exportar relatório. Verifique sua conexão e tente novamente."
+      );
+    } finally {
+      // Restaurar botão
+      const exportButton = document.querySelector(
+        "[data-export-button]"
+      ) as HTMLButtonElement;
+      if (exportButton) {
+        exportButton.disabled = false;
+        exportButton.innerHTML =
+          '<svg class="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>Exportar Excel';
+      }
     }
   };
 
@@ -187,7 +222,11 @@ export function ReportsPage() {
             Análises detalhadas de vendas e clientes
           </p>
         </div>
-        <Button onClick={exportToExcel} disabled={!reportData || isLoading}>
+        <Button
+          onClick={exportToExcel}
+          disabled={!reportData || isLoading}
+          data-export-button
+        >
           <FileSpreadsheet className="h-4 w-4 mr-2" />
           Exportar Excel
         </Button>

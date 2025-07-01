@@ -241,11 +241,11 @@ export async function GET(request: NextRequest) {
         "Cidade",
         "Estado",
         "Quantidade",
-        "Preço Unitário",
-        "Desconto",
-        "Total",
-        "Custo",
-        "Lucro",
+        "Preço Unitário (R$)",
+        "Desconto (R$)",
+        "Total (R$)",
+        "Custo (R$)",
+        "Lucro (R$)",
         "Observações",
       ];
 
@@ -261,21 +261,35 @@ export async function GET(request: NextRequest) {
         sale.customer_city || "",
         sale.customer_state || "",
         sale.quantity,
-        sale.unit_price,
-        sale.discount,
-        sale.total_amount,
-        sale.cost_price,
-        sale.profit,
+        sale.unit_price.toFixed(2).replace(".", ","),
+        sale.discount.toFixed(2).replace(".", ","),
+        sale.total_amount.toFixed(2).replace(".", ","),
+        sale.cost_price.toFixed(2).replace(".", ","),
+        sale.profit.toFixed(2).replace(".", ","),
         sale.notes || "",
       ]);
 
+      // Criar conteúdo CSV com BOM UTF-8 para compatibilidade com Excel
       const csvContent = [csvHeaders, ...csvRows]
-        .map((row) => row.map((cell) => `"${cell}"`).join(","))
-        .join("\n");
+        .map(
+          (row) =>
+            row
+              .map((cell) => {
+                // Escapar aspas duplas e quebras de linha
+                const escapedCell = String(cell).replace(/"/g, '""');
+                return `"${escapedCell}"`;
+              })
+              .join(";") // Usar ponto e vírgula como separador (padrão brasileiro)
+        )
+        .join("\r\n"); // Usar \r\n para compatibilidade com Windows
 
-      return new NextResponse(csvContent, {
+      // Adicionar BOM UTF-8 para que o Excel reconheça a codificação
+      const bom = "\uFEFF";
+      const csvWithBom = bom + csvContent;
+
+      return new NextResponse(csvWithBom, {
         headers: {
-          "Content-Type": "text/csv",
+          "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="relatorio-vendas-${startDate}-${endDate}.csv"`,
         },
       });
