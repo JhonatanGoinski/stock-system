@@ -41,7 +41,14 @@ export async function GET(
       `✅ ${productionHistory.length} registros de produção encontrados`
     );
 
-    return NextResponse.json(productionHistory);
+    // Formatar as datas corretamente antes de retornar
+    const formattedHistory = productionHistory.map((record: any) => ({
+      ...record,
+      productionDate: record.productionDate.toLocaleDateString("pt-BR"),
+      createdAt: record.createdAt.toLocaleDateString("pt-BR"),
+    }));
+
+    return NextResponse.json(formattedHistory);
   } catch (error) {
     console.error("❌ Erro ao buscar histórico de produção:", error);
     return NextResponse.json(

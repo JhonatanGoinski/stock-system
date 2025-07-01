@@ -13,7 +13,6 @@ import {
   ChevronUp,
   Filter,
 } from "lucide-react";
-import { formatDateForDisplay } from "@/lib/utils";
 
 interface ProductionRecord {
   id: number;
@@ -98,10 +97,6 @@ export function ProductionHistory({
     setStartDate("");
     setEndDate("");
     setShowFilters(false);
-  };
-
-  const formatDate = (dateString: string) => {
-    return formatDateForDisplay(dateString);
   };
 
   const totalProduced = filteredHistory.reduce(
@@ -234,7 +229,7 @@ export function ProductionHistory({
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4 text-muted-foreground" />
                             <span className="font-medium">
-                              {formatDate(record.productionDate)}
+                              {record.productionDate}
                             </span>
                           </div>
                           <Badge variant="outline">
@@ -247,7 +242,7 @@ export function ProductionHistory({
                           </p>
                         )}
                         <p className="text-xs text-muted-foreground mt-2">
-                          Registrado em: {formatDate(record.createdAt)}
+                          Registrado em: {record.createdAt}
                         </p>
                       </div>
                     ))}
