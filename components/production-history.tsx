@@ -44,8 +44,7 @@ export function ProductionHistory({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [filterDate, setFilterDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const INITIAL_LIMIT = 5;
@@ -56,7 +55,7 @@ export function ProductionHistory({
 
   useEffect(() => {
     applyFilters();
-  }, [history, startDate, endDate]);
+  }, [history, filterDate]);
 
   const fetchHistory = async () => {
     try {
@@ -80,22 +79,31 @@ export function ProductionHistory({
   const applyFilters = () => {
     let filtered = [...history];
 
-    if (startDate) {
-      filtered = filtered.filter(
-        (record) => record.productionDate >= startDate
-      );
-    }
+    if (filterDate) {
+      // Converter a data do filtro para formato brasileiro para comparação
+      const filterDateBR = new Date(filterDate).toLocaleDateString("pt-BR");
+      console.log("🔍 Aplicando filtro:", {
+        filterDate,
+        filterDateBR,
+        totalRecords: history.length,
+      });
 
-    if (endDate) {
-      filtered = filtered.filter((record) => record.productionDate <= endDate);
+      filtered = filtered.filter((record) => {
+        const matches = record.productionDate === filterDateBR;
+        console.log("📅 Comparando:", {
+          recordDate: record.productionDate,
+          filterDate: filterDateBR,
+          matches,
+        });
+        return matches;
+      });
     }
 
     setFilteredHistory(filtered);
   };
 
   const clearFilters = () => {
-    setStartDate("");
-    setEndDate("");
+    setFilterDate("");
     setShowFilters(false);
   };
 
@@ -174,39 +182,30 @@ export function ProductionHistory({
 
                 {showFilters && (
                   <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
-                      <div className="flex-1 w-full sm:w-auto">
+                    <div className="flex items-center gap-3">
+                      <div className="flex-1">
                         <label className="text-xs text-muted-foreground mb-1 block">
-                          Data Inicial
+                          Data
                         </label>
                         <Input
                           type="date"
-                          value={startDate}
-                          onChange={(e) => setStartDate(e.target.value)}
-                          className="h-8 text-xs w-full"
+                          value={filterDate}
+                          onChange={(e) => setFilterDate(e.target.value)}
+                          className="h-8 text-xs"
                         />
                       </div>
-                      <div className="flex-1 w-full sm:w-auto">
-                        <label className="text-xs text-muted-foreground mb-1 block">
-                          Data Final
-                        </label>
-                        <Input
-                          type="date"
-                          value={endDate}
-                          onChange={(e) => setEndDate(e.target.value)}
-                          className="h-8 text-xs w-full"
-                        />
+                      <div className="flex items-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={clearFilters}
+                          className="h-8 text-xs"
+                        >
+                          Limpar
+                        </Button>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="h-8 text-xs w-full sm:w-auto"
-                      >
-                        Limpar
-                      </Button>
                     </div>
-                    {(startDate || endDate) && (
+                    {filterDate && (
                       <div className="text-xs text-muted-foreground">
                         {filteredHistory.length} registros encontrados
                       </div>
