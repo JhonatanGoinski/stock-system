@@ -463,8 +463,8 @@ export function isVercel(): boolean {
 export function createDateRangeForEnvironment(date?: Date | string) {
   const inputDate = date ? new Date(date) : new Date();
 
-  // Criar data base com horário zerado (sem compensação de timezone)
-  // Como estamos salvando datas sem timezone, não precisamos compensar
+  // Para campos DATE no banco, precisamos usar apenas a data (sem horário)
+  // Criar data base com horário zerado
   const baseDate = new Date(
     inputDate.getFullYear(),
     inputDate.getMonth(),
@@ -475,20 +475,13 @@ export function createDateRangeForEnvironment(date?: Date | string) {
     0
   );
 
+  // Para consultas em campos DATE, usar apenas a data
   const startOfDay = new Date(baseDate);
-  const endOfDay = new Date(
-    baseDate.getFullYear(),
-    baseDate.getMonth(),
-    baseDate.getDate(),
-    23,
-    59,
-    59,
-    999
-  );
+  const endOfDay = new Date(baseDate);
 
   return {
     start: startOfDay,
     end: endOfDay,
-    note: "Usando datas locais sem compensação de timezone (consistente com forceDateWithoutTimezone)",
+    note: "Usando datas para campos DATE (sem horário) - consistente com forceDateWithoutTimezone",
   };
 }

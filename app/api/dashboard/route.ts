@@ -74,6 +74,13 @@ export async function GET() {
     const localTodayStart = todayRange.start;
     const localTodayEnd = todayRange.end;
 
+    // Para campos DATE, usar apenas a data de hoje
+    const todayDate = new Date(
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate()
+    );
+
     // Início do mês atual
     const startOfMonth = new Date(
       today.getFullYear(),
@@ -115,13 +122,10 @@ export async function GET() {
       lowStockProducts,
       dailySales,
     ] = await Promise.all([
-      // Vendas de hoje (com compensação de timezone)
+      // Vendas de hoje (usando campo DATE)
       prisma.sale.aggregate({
         where: {
-          saleDate: {
-            gte: localTodayStart,
-            lte: localTodayEnd,
-          },
+          saleDate: todayDate,
         },
         _sum: {
           totalAmount: true,
@@ -247,13 +251,13 @@ export async function GET() {
         },
       }),
 
-      // Vendas dos últimos 7 dias (incluindo hoje) com compensação de timezone
+      // Vendas dos últimos 7 dias (incluindo hoje) usando campo DATE
       prisma.sale
         .findMany({
           where: {
             saleDate: {
               gte: sevenDaysAgo, // Buscar dos últimos 7 dias
-              lte: localTodayEnd, // Até o final de hoje (com compensação)
+              lte: todayDate, // Até hoje
             },
           },
           select: {
