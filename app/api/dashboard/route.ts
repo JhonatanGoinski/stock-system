@@ -74,6 +74,19 @@ export async function GET() {
     const localTodayStart = todayRange.start;
     const localTodayEnd = todayRange.end;
 
+    // Para vendas de hoje, usar apenas a data específica (sem range)
+    const todayDate = new Date(
+      Date.UTC(
+        today.getFullYear(),
+        today.getMonth(),
+        today.getDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+
     // Início do mês atual
     const startOfMonth = new Date(
       today.getFullYear(),
@@ -115,13 +128,10 @@ export async function GET() {
       lowStockProducts,
       dailySales,
     ] = await Promise.all([
-      // Vendas de hoje (com compensação de timezone)
+      // Vendas de hoje (usando data específica)
       prisma.sale.aggregate({
         where: {
-          saleDate: {
-            gte: localTodayStart,
-            lte: localTodayEnd,
-          },
+          saleDate: todayDate,
         },
         _sum: {
           totalAmount: true,
@@ -295,8 +305,9 @@ export async function GET() {
 
     // Logs de debug para verificar os dados
     logger.debug("💰 Vendas de hoje:", {
-      localTodayStart: localTodayStart.toISOString(),
+      todayDate: todayDate.toISOString(),
       totalRevenue: Number(todayRevenue._sum.totalAmount || 0),
+      note: "Usando data específica em vez de range",
     });
 
     // Log detalhado da consulta de vendas diárias
