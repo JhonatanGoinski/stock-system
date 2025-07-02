@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createDateWithoutTimezone,
   forceDateWithoutTimezone,
+  getCurrentDateUTC,
 } from "@/lib/utils";
 
 export async function GET(
@@ -73,10 +74,10 @@ export async function POST(
       );
     }
 
-    // Usar a data fornecida ou a data atual - sempre forçada sem timezone
+    // Usar a data fornecida ou a data atual - sempre com UTC zerado
     const dateToUse = productionDate
       ? forceDateWithoutTimezone(productionDate)
-      : forceDateWithoutTimezone(new Date());
+      : getCurrentDateUTC();
 
     console.log("📡 Adicionando produção:", {
       productId,

@@ -141,6 +141,41 @@ export function createDateWithoutTimezone(date?: Date | string): Date {
 }
 
 /**
+ * Obtém a data atual considerando timezone do Brasil (UTC-3)
+ * @returns Date com UTC zerado da data atual no Brasil
+ */
+export function getCurrentDateUTC(): Date {
+  const now = new Date();
+
+  // Compensar 3 horas para pegar a data do Brasil
+  // Se são 22h no Brasil, no servidor UTC são 01h do dia seguinte
+  const brazilOffset = 3; // UTC-3
+  const brazilDate = new Date(now.getTime() - brazilOffset * 60 * 60 * 1000);
+
+  // Criar data com UTC zerado baseada na data do Brasil
+  const utcDate = new Date(
+    Date.UTC(
+      brazilDate.getFullYear(),
+      brazilDate.getMonth(),
+      brazilDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    )
+  );
+
+  console.log("🔧 getCurrentDateUTC (Brasil):", {
+    now: now.toISOString(),
+    brazilDate: brazilDate.toISOString(),
+    utcDate: utcDate.toISOString(),
+    note: "Data atual do Brasil (UTC-3) convertida para UTC zerado",
+  });
+
+  return utcDate;
+}
+
+/**
  * Força uma data a ser salva com UTC zerado (00:00:00 UTC)
  * @param date - Data a ser processada
  * @returns Date para salvar no banco

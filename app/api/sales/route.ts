@@ -7,6 +7,7 @@ import {
   forceDateWithoutTimezone,
   createDateRangeWithTimezone,
   dateToString,
+  getCurrentDateUTC,
 } from "@/lib/utils";
 
 // Forçar rota dinâmica para evitar problemas durante o build
@@ -236,10 +237,10 @@ export async function POST(request: NextRequest) {
 
     // Criar venda e atualizar estoque em transação
     const result = await prisma.$transaction(async (tx) => {
-      // Forçar a data da venda sem timezone para garantir o dia correto
+      // Forçar a data da venda com UTC zerado para garantir o dia correto
       const saleDateToSave = validatedData.sale_date
         ? forceDateWithoutTimezone(validatedData.sale_date)
-        : forceDateWithoutTimezone(new Date());
+        : getCurrentDateUTC();
 
       console.log("📅 Salvando venda com data:", {
         originalDate: validatedData.sale_date,
