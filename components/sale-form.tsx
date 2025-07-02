@@ -252,7 +252,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
               id="sale_date"
               type="date"
               {...register("sale_date", { required: true })}
-              defaultValue={new Date().toISOString().split("T")[0]}
+              defaultValue={new Date().toLocaleDateString("en-CA")}
             />
             {errors.sale_date && (
               <p className="text-sm text-red-500">{errors.sale_date.message}</p>

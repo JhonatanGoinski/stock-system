@@ -147,17 +147,23 @@ export function createDateWithoutTimezone(date?: Date | string): Date {
 export function getCurrentDateUTC(): Date {
   const now = new Date();
 
-  // Compensar 3 horas para pegar a data do Brasil
-  // Se são 22h no Brasil, no servidor UTC são 01h do dia seguinte
-  const brazilOffset = 3; // UTC-3
-  const brazilDate = new Date(now.getTime() - brazilOffset * 60 * 60 * 1000);
+  // Usar a data local do servidor (que já considera o timezone)
+  const localDate = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0
+  );
 
-  // Criar data com UTC zerado baseada na data do Brasil
+  // Criar data com UTC zerado baseada na data local
   const utcDate = new Date(
     Date.UTC(
-      brazilDate.getFullYear(),
-      brazilDate.getMonth(),
-      brazilDate.getDate(),
+      localDate.getFullYear(),
+      localDate.getMonth(),
+      localDate.getDate(),
       0,
       0,
       0,
@@ -165,11 +171,11 @@ export function getCurrentDateUTC(): Date {
     )
   );
 
-  console.log("🔧 getCurrentDateUTC (Brasil):", {
+  console.log("🔧 getCurrentDateUTC (simplificado):", {
     now: now.toISOString(),
-    brazilDate: brazilDate.toISOString(),
+    localDate: localDate.toISOString(),
     utcDate: utcDate.toISOString(),
-    note: "Data atual do Brasil (UTC-3) convertida para UTC zerado",
+    note: "Usando data local do servidor (sem compensação)",
   });
 
   return utcDate;
@@ -322,11 +328,13 @@ export function getCurrentDate(): Date {
 }
 
 /**
- * Obtém a data atual como string YYYY-MM-DD
+ * Obtém a data atual como string YYYY-MM-DD (data local do navegador)
  * @returns String no formato YYYY-MM-DD
  */
 export function getCurrentDateString(): string {
-  return dateToString(getCurrentDate());
+  // Usar a data local do navegador (frontend) em vez do servidor
+  const now = new Date();
+  return now.toLocaleDateString("en-CA"); // Formato YYYY-MM-DD
 }
 
 /**

@@ -237,10 +237,8 @@ export async function POST(request: NextRequest) {
 
     // Criar venda e atualizar estoque em transação
     const result = await prisma.$transaction(async (tx) => {
-      // Forçar a data da venda com UTC zerado para garantir o dia correto
-      const saleDateToSave = validatedData.sale_date
-        ? forceDateWithoutTimezone(validatedData.sale_date)
-        : getCurrentDateUTC();
+      // SEMPRE usar a data fornecida pelo usuário (frontend já envia a data correta)
+      const saleDateToSave = forceDateWithoutTimezone(validatedData.sale_date);
 
       console.log("📅 Salvando venda com data:", {
         originalDate: validatedData.sale_date,
