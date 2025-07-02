@@ -51,10 +51,29 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Usar as novas funções para criar intervalo de datas sem timezone
-    const start = createDateWithoutTimezone(startDate);
-    const end = createDateWithoutTimezone(endDate);
-    end.setHours(23, 59, 59, 999); // Fim do dia final
+    // Usar UTC zerado para criar intervalo de datas (consistente com forceDateWithoutTimezone)
+    const start = new Date(
+      Date.UTC(
+        new Date(startDate).getFullYear(),
+        new Date(startDate).getMonth(),
+        new Date(startDate).getDate(),
+        0,
+        0,
+        0,
+        0
+      )
+    );
+    const end = new Date(
+      Date.UTC(
+        new Date(endDate).getFullYear(),
+        new Date(endDate).getMonth(),
+        new Date(endDate).getDate(),
+        23,
+        59,
+        59,
+        999
+      )
+    );
 
     const whereClause: any = {
       saleDate: {

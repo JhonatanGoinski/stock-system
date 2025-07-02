@@ -141,7 +141,7 @@ export function createDateWithoutTimezone(date?: Date | string): Date {
 }
 
 /**
- * Força uma data a ser salva como timestamp without time zone
+ * Força uma data a ser salva com UTC zerado (00:00:00 UTC)
  * @param date - Data a ser processada
  * @returns Date para salvar no banco
  */
@@ -155,28 +155,30 @@ export function forceDateWithoutTimezone(date: Date | string): Date {
     inputDate = date;
   }
 
-  // Criar data local com horário zerado usando a data fornecida
-  const localDate = new Date(
-    inputDate.getFullYear(),
-    inputDate.getMonth(),
-    inputDate.getDate(),
-    0,
-    0,
-    0,
-    0
+  // Criar data com UTC zerado (00:00:00 UTC) usando a data fornecida
+  const utcDate = new Date(
+    Date.UTC(
+      inputDate.getFullYear(),
+      inputDate.getMonth(),
+      inputDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    )
   );
 
   // Log para debug
-  console.log("🔧 forceDateWithoutTimezone (timestamp without time zone):", {
+  console.log("🔧 forceDateWithoutTimezone (UTC zerado):", {
     input: date,
     inputDate: inputDate,
-    localDate: localDate,
-    localDateISO: localDate.toISOString(),
-    localDateLocal: localDate.toLocaleDateString("pt-BR"),
-    note: "Usando timestamp without time zone",
+    utcDate: utcDate,
+    utcDateISO: utcDate.toISOString(),
+    utcDateLocal: utcDate.toLocaleDateString("pt-BR"),
+    note: "Salvando com UTC zerado (00:00:00 UTC)",
   });
 
-  return localDate;
+  return utcDate;
 }
 
 /**
@@ -456,32 +458,45 @@ export function isVercel(): boolean {
 }
 
 /**
- * Cria datas para consulta considerando o ambiente (local vs produção)
+ * Cria datas para consulta usando UTC zerado (consistente com forceDateWithoutTimezone)
  * @param date - Data opcional, se não fornecida usa a data atual
- * @returns Objeto com start e end dates ajustados para o ambiente
+ * @returns Objeto com start e end dates em UTC zerado
  */
 export function createDateRangeForEnvironment(date?: Date | string) {
   const inputDate = date ? new Date(date) : new Date();
 
-  // Para campos DATE no banco, precisamos usar apenas a data (sem horário)
-  // Criar data base com horário zerado
+  // Criar data base com UTC zerado (00:00:00 UTC)
   const baseDate = new Date(
-    inputDate.getFullYear(),
-    inputDate.getMonth(),
-    inputDate.getDate(),
-    0,
-    0,
-    0,
-    0
+    Date.UTC(
+      inputDate.getFullYear(),
+      inputDate.getMonth(),
+      inputDate.getDate(),
+      0,
+      0,
+      0,
+      0
+    )
   );
 
-  // Para consultas em campos DATE, usar apenas a data
+  // Início do dia em UTC zerado
   const startOfDay = new Date(baseDate);
-  const endOfDay = new Date(baseDate);
+
+  // Fim do dia em UTC zerado (23:59:59 UTC)
+  const endOfDay = new Date(
+    Date.UTC(
+      inputDate.getFullYear(),
+      inputDate.getMonth(),
+      inputDate.getDate(),
+      23,
+      59,
+      59,
+      999
+    )
+  );
 
   return {
     start: startOfDay,
     end: endOfDay,
-    note: "Usando datas para campos DATE (sem horário) - consistente com forceDateWithoutTimezone",
+    note: "Usando UTC zerado (consistente com forceDateWithoutTimezone)",
   };
 }

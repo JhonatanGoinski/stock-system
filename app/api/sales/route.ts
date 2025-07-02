@@ -47,26 +47,59 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get("startDate");
     const endDate = searchParams.get("endDate");
 
-    // Construir filtro de data
+    // Construir filtro de data usando UTC zerado
     let dateWhereClause = {};
     if (dateFilter) {
       // Filtro por data específica
-      const dateString = dateToString(createDateWithoutTimezone(dateFilter));
+      const dateObj = new Date(dateFilter);
+      const utcDate = new Date(
+        Date.UTC(
+          dateObj.getFullYear(),
+          dateObj.getMonth(),
+          dateObj.getDate(),
+          0,
+          0,
+          0,
+          0
+        )
+      );
 
       dateWhereClause = {
-        saleDate: dateString,
+        saleDate: utcDate,
       };
     } else if (startDate && endDate) {
       // Filtro por intervalo de datas
-      const startDateString = dateToString(
-        createDateWithoutTimezone(startDate)
+      const startDateObj = new Date(startDate);
+      const endDateObj = new Date(endDate);
+
+      const startUtcDate = new Date(
+        Date.UTC(
+          startDateObj.getFullYear(),
+          startDateObj.getMonth(),
+          startDateObj.getDate(),
+          0,
+          0,
+          0,
+          0
+        )
       );
-      const endDateString = dateToString(createDateWithoutTimezone(endDate));
+
+      const endUtcDate = new Date(
+        Date.UTC(
+          endDateObj.getFullYear(),
+          endDateObj.getMonth(),
+          endDateObj.getDate(),
+          23,
+          59,
+          59,
+          999
+        )
+      );
 
       dateWhereClause = {
         saleDate: {
-          gte: startDateString,
-          lte: endDateString,
+          gte: startUtcDate,
+          lte: endUtcDate,
         },
       };
     }
