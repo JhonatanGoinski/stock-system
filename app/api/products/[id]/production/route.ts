@@ -46,14 +46,9 @@ export async function GET(
     const formattedHistory = productionHistory.map((record: any) => ({
       ...record,
       productionDate: record.productionDate.toLocaleDateString("pt-BR"),
-      // Para createdAt, usar a data local do servidor (sem conversão UTC)
+      // Para createdAt, compensar 3 horas para pegar a data do Brasil
       createdAt: new Date(
-        record.createdAt.getFullYear(),
-        record.createdAt.getMonth(),
-        record.createdAt.getDate(),
-        record.createdAt.getHours(),
-        record.createdAt.getMinutes(),
-        record.createdAt.getSeconds()
+        record.createdAt.getTime() - 3 * 60 * 60 * 1000
       ).toLocaleDateString("pt-BR"),
     }));
 

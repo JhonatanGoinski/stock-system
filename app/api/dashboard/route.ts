@@ -74,17 +74,15 @@ export async function GET() {
     const localTodayStart = todayRange.start;
     const localTodayEnd = todayRange.end;
 
-    // Para vendas de hoje, usar apenas a data específica (sem range)
+    // Para vendas de hoje, usar a data local do servidor
     const todayDate = new Date(
-      Date.UTC(
-        today.getFullYear(),
-        today.getMonth(),
-        today.getDate(),
-        0,
-        0,
-        0,
-        0
-      )
+      today.getFullYear(),
+      today.getMonth(),
+      today.getDate(),
+      0,
+      0,
+      0,
+      0
     );
 
     // Início do mês atual
@@ -109,6 +107,7 @@ export async function GET() {
     logger.info("📊 Iniciando consultas do dashboard...");
     logger.debug("📅 Datas calculadas (ambiente detectado):", {
       today: today.toISOString(),
+      todayDate: todayDate.toISOString(),
       localTodayStart: localTodayStart.toISOString(),
       localTodayEnd: localTodayEnd.toISOString(),
       startOfMonth: startOfMonth.toISOString(),
