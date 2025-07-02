@@ -27,6 +27,8 @@ import {
   Users,
   Package,
   TrendingUp,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import type { Product, Customer } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
@@ -90,6 +92,7 @@ export function ReportsPage() {
     customerId: "all",
     productId: "all",
   });
+  const [visibleSales, setVisibleSales] = useState(5); // Mostrar 5 vendas por padrão
 
   useEffect(() => {
     fetchProducts();
@@ -109,6 +112,16 @@ export function ReportsPage() {
       generateReport();
     }
   }, [filters]);
+
+  // Resetar paginação quando os filtros mudarem
+  useEffect(() => {
+    setVisibleSales(5);
+  }, [
+    filters.startDate,
+    filters.endDate,
+    filters.customerId,
+    filters.productId,
+  ]);
 
   const fetchProducts = async () => {
     try {
@@ -493,7 +506,7 @@ export function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {reportData.sales.map((sale) => (
+                    {reportData.sales.slice(0, visibleSales).map((sale) => (
                       <TableRow key={sale.id}>
                         <TableCell>{sale.date}</TableCell>
                         <TableCell>
@@ -548,6 +561,57 @@ export function ReportsPage() {
                   <div className="text-center py-8 text-muted-foreground">
                     <Package className="h-12 w-12 mx-auto mb-4 opacity-50" />
                     <p>Nenhuma venda encontrada no período selecionado</p>
+                  </div>
+                )}
+
+                {/* Paginação das vendas */}
+                {reportData.sales.length > 0 && (
+                  <div className="border-t p-4 bg-muted/30">
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-center sm:text-left">
+                        <div className="text-sm text-muted-foreground">
+                          Mostrando{" "}
+                          {Math.min(visibleSales, reportData.sales.length)} de{" "}
+                          {reportData.sales.length} vendas
+                        </div>
+                        {reportData.sales.length > 5 && (
+                          <div className="text-xs text-muted-foreground mt-1">
+                            Toque em "Ver Mais" para carregar mais vendas
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {visibleSales < reportData.sales.length && (
+                          <Button
+                            variant="outline"
+                            onClick={() => setVisibleSales(visibleSales + 5)}
+                            className="flex items-center gap-2 text-sm"
+                            size="sm"
+                          >
+                            <ChevronDown className="h-4 w-4" />
+                            <span className="hidden sm:inline">
+                              Ver Mais 5 Vendas
+                            </span>
+                            <span className="sm:hidden">+5 Vendas</span>
+                          </Button>
+                        )}
+                        {visibleSales >= reportData.sales.length &&
+                          visibleSales > 5 && (
+                            <Button
+                              variant="outline"
+                              onClick={() => setVisibleSales(5)}
+                              className="flex items-center gap-2 text-sm"
+                              size="sm"
+                            >
+                              <ChevronUp className="h-4 w-4" />
+                              <span className="hidden sm:inline">
+                                Ver Menos
+                              </span>
+                              <span className="sm:hidden">Ver Menos</span>
+                            </Button>
+                          )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
