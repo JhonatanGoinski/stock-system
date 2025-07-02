@@ -43,12 +43,12 @@ export function ProductionHistory({
   );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [showAll, setShowAll] = useState(false);
+  const [displayLimit, setDisplayLimit] = useState(5);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
-  const INITIAL_LIMIT = 5;
+  const RECORDS_PER_PAGE = 5;
 
   useEffect(() => {
     fetchHistory();
@@ -88,33 +88,26 @@ export function ProductionHistory({
       });
 
       filtered = filtered.filter((record) => {
-        // Converter a data do registro (formato DD/MM/YYYY) para Date
+        // Usar diretamente o productionDate que já está no formato DD/MM/YYYY
         const [day, month, year] = record.productionDate.split("/");
-        const recordDate = new Date(
-          parseInt(year),
-          parseInt(month) - 1,
-          parseInt(day)
-        );
+        const recordDateString = `${year}-${month.padStart(
+          2,
+          "0"
+        )}-${day.padStart(2, "0")}`;
 
         let matches = true;
 
         if (startDate) {
-          // Converter data de filtro para Date local
-          const startDateObj = new Date(startDate);
-          startDateObj.setHours(0, 0, 0, 0);
-          matches = matches && recordDate >= startDateObj;
+          matches = matches && recordDateString >= startDate;
         }
 
         if (endDate) {
-          // Converter data de filtro para Date local
-          const endDateObj = new Date(endDate);
-          endDateObj.setHours(23, 59, 59, 999);
-          matches = matches && recordDate <= endDateObj;
+          matches = matches && recordDateString <= endDate;
         }
 
         console.log("📅 Comparando:", {
           recordDate: record.productionDate,
-          recordDateObj: recordDate,
+          recordDateString,
           startDate,
           endDate,
           matches,
@@ -137,10 +130,9 @@ export function ProductionHistory({
     (sum, record) => sum + record.quantity,
     0
   );
-  const displayedHistory = showAll
-    ? filteredHistory
-    : filteredHistory.slice(0, INITIAL_LIMIT);
-  const hasMoreRecords = filteredHistory.length > INITIAL_LIMIT;
+  const displayedHistory = filteredHistory.slice(0, displayLimit);
+  const hasMoreRecords = filteredHistory.length > displayLimit;
+  const hasShownMore = displayLimit > RECORDS_PER_PAGE;
 
   if (loading) {
     return (
@@ -284,28 +276,32 @@ export function ProductionHistory({
                     ))}
                   </div>
 
-                  {/* Botão Ver Mais */}
-                  {hasMoreRecords && (
-                    <div className="p-4 border-t">
-                      <Button
-                        variant="outline"
-                        onClick={() => setShowAll(!showAll)}
-                        className="w-full text-xs"
-                      >
-                        {showAll ? (
-                          <>
-                            <ChevronUp className="w-3 h-3 mr-1" />
-                            Ver Menos ({INITIAL_LIMIT} registros)
-                          </>
-                        ) : (
-                          <>
-                            <ChevronDown className="w-3 h-3 mr-1" />
-                            Ver Mais ({filteredHistory.length -
-                              INITIAL_LIMIT}{" "}
-                            registros restantes)
-                          </>
-                        )}
-                      </Button>
+                  {/* Botões de Paginação */}
+                  {(hasMoreRecords || hasShownMore) && (
+                    <div className="p-4 border-t flex gap-2">
+                      {hasMoreRecords && (
+                        <Button
+                          variant="outline"
+                          onClick={() =>
+                            setDisplayLimit(displayLimit + RECORDS_PER_PAGE)
+                          }
+                          className="flex-1 text-xs"
+                        >
+                          <ChevronDown className="w-3 h-3 mr-1" />
+                          Ver Mais ({filteredHistory.length - displayLimit}{" "}
+                          restantes)
+                        </Button>
+                      )}
+                      {hasShownMore && (
+                        <Button
+                          variant="ghost"
+                          onClick={() => setDisplayLimit(RECORDS_PER_PAGE)}
+                          className="text-xs"
+                        >
+                          <ChevronUp className="w-3 h-3 mr-1" />
+                          Ver Menos
+                        </Button>
+                      )}
                     </div>
                   )}
                 </div>
