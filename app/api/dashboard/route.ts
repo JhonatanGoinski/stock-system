@@ -74,16 +74,9 @@ export async function GET() {
     const localTodayStart = todayRange.start;
     const localTodayEnd = todayRange.end;
 
-    // Para vendas de hoje, usar a data local do servidor
-    const todayDate = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate(),
-      0,
-      0,
-      0,
-      0
-    );
+    // Para vendas de hoje, usar a data local do servidor (sem timezone)
+    const todayDate = new Date();
+    todayDate.setHours(0, 0, 0, 0);
 
     // Início do mês atual
     const startOfMonth = new Date(
@@ -100,9 +93,10 @@ export async function GET() {
     const thirtyDaysAgo = new Date(today);
     thirtyDaysAgo.setDate(today.getDate() - 30);
 
-    // 7 dias atrás
-    const sevenDaysAgo = new Date(today);
-    sevenDaysAgo.setDate(today.getDate() - 6);
+    // 7 dias atrás (incluindo hoje)
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
+    sevenDaysAgo.setHours(0, 0, 0, 0);
 
     logger.info("📊 Iniciando consultas do dashboard...");
     logger.debug("📅 Datas calculadas (ambiente detectado):", {
@@ -256,13 +250,13 @@ export async function GET() {
         },
       }),
 
-      // Vendas dos últimos 7 dias (incluindo hoje) com compensação de timezone
+      // Vendas dos últimos 7 dias (incluindo hoje)
       prisma.sale
         .findMany({
           where: {
             saleDate: {
               gte: sevenDaysAgo, // Buscar dos últimos 7 dias
-              lte: localTodayEnd, // Até o final de hoje (com compensação)
+              lte: todayDate, // Até hoje (inclusive)
             },
           },
           select: {

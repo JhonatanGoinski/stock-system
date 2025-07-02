@@ -99,34 +99,16 @@ export function ProductionHistory({
         let matches = true;
 
         if (startDate) {
-          // Usar UTC zerado para comparação consistente
-          const startDateObj = new Date(
-            Date.UTC(
-              new Date(startDate).getFullYear(),
-              new Date(startDate).getMonth(),
-              new Date(startDate).getDate(),
-              0,
-              0,
-              0,
-              0
-            )
-          );
+          // Converter data de filtro para Date local
+          const startDateObj = new Date(startDate);
+          startDateObj.setHours(0, 0, 0, 0);
           matches = matches && recordDate >= startDateObj;
         }
 
         if (endDate) {
-          // Usar UTC zerado para comparação consistente
-          const endDateObj = new Date(
-            Date.UTC(
-              new Date(endDate).getFullYear(),
-              new Date(endDate).getMonth(),
-              new Date(endDate).getDate(),
-              23,
-              59,
-              59,
-              999
-            )
-          );
+          // Converter data de filtro para Date local
+          const endDateObj = new Date(endDate);
+          endDateObj.setHours(23, 59, 59, 999);
           matches = matches && recordDate <= endDateObj;
         }
 
