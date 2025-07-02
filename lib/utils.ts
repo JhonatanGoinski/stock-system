@@ -146,14 +146,20 @@ export function createDateWithoutTimezone(date?: Date | string): Date {
  * @returns Date para salvar no banco
  */
 export function forceDateWithoutTimezone(date: Date | string): Date {
-  // SOLUÇÃO: Usar timestamp without time zone
-  const now = new Date();
+  let inputDate: Date;
 
-  // Criar data local com horário zerado
+  if (typeof date === "string") {
+    // Se for string, converter para Date
+    inputDate = new Date(date);
+  } else {
+    inputDate = date;
+  }
+
+  // Criar data local com horário zerado usando a data fornecida
   const localDate = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate(),
+    inputDate.getFullYear(),
+    inputDate.getMonth(),
+    inputDate.getDate(),
     0,
     0,
     0,
@@ -163,7 +169,7 @@ export function forceDateWithoutTimezone(date: Date | string): Date {
   // Log para debug
   console.log("🔧 forceDateWithoutTimezone (timestamp without time zone):", {
     input: date,
-    now: now,
+    inputDate: inputDate,
     localDate: localDate,
     localDateISO: localDate.toISOString(),
     localDateLocal: localDate.toLocaleDateString("pt-BR"),

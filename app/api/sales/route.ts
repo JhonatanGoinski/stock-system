@@ -203,6 +203,20 @@ export async function POST(request: NextRequest) {
 
     // Criar venda e atualizar estoque em transação
     const result = await prisma.$transaction(async (tx) => {
+      // Forçar a data da venda sem timezone para garantir o dia correto
+      const saleDateToSave = validatedData.sale_date 
+        ? forceDateWithoutTimezone(validatedData.sale_date)
+        : forceDateWithoutTimezone(new Date());
+
+      console.log("📅 Salvando venda com data:", {
+        originalDate: validatedData.sale_date,
+        saleDateToSave: saleDateToSave,
+        saleDateToSaveISO: saleDateToSave.toISOString(),
+        saleDateToSaveLocal: saleDateToSave.toLocaleDateString("pt-BR"),
+        currentTime: new Date().toLocaleString("pt-BR"),
+        note: "Forçando data sem timezone para garantir dia correto"
+      });
+
       const sale = await tx.sale.create({
         data: {
           productId: validatedData.product_id,
@@ -212,7 +226,7 @@ export async function POST(request: NextRequest) {
           totalAmount: total_amount,
           discount: discount,
           notes: validatedData.notes || null,
-          saleDate: createDateWithoutTimezone(validatedData.sale_date),
+          saleDate: saleDateToSave,
         },
       });
 
