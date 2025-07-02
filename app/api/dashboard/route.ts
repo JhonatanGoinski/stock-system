@@ -244,6 +244,7 @@ export async function GET() {
           name: true,
           category: true,
           stockQuantity: true,
+          size: true,
         },
         orderBy: {
           stockQuantity: "asc",

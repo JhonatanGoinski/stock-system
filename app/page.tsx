@@ -47,6 +47,7 @@ import { SalesFilter } from "@/components/sales-filter";
 import { CustomersFilter } from "@/components/customers-filter";
 import { Input } from "@/components/ui/input";
 import { ProductionHistory } from "@/components/production-history";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -108,6 +109,12 @@ function DashboardContent() {
   const [selectedProductId, setSelectedProductId] = useState<number | null>(
     null
   );
+  const { toast } = useToast();
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteType, setDeleteType] = useState<
+    "product" | "customer" | "sale" | null
+  >(null);
+  const [itemToDelete, setItemToDelete] = useState<any>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -176,81 +183,64 @@ function DashboardContent() {
   };
 
   const handleDeleteProduct = async (id: number) => {
-    console.log("🔍 Tentando deletar produto:", id);
-
-    if (
-      !confirm(
-        "Tem certeza que deseja deletar este produto? Esta ação não pode ser desfeita."
-      )
-    ) {
-      console.log("❌ Usuário cancelou a exclusão");
-      return;
-    }
-
     try {
-      console.log("📡 Enviando requisição DELETE para:", `/api/products/${id}`);
-
       const response = await fetch(`/api/products/${id}`, {
         method: "DELETE",
       });
-
-      console.log(
-        "📡 Resposta recebida:",
-        response.status,
-        response.statusText
-      );
-
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Produto deletado:", result.message);
-
-        // Pequeno delay para garantir que a exclusão seja processada
+        toast({
+          title: "Produto deletado!",
+          description: "O produto foi removido com sucesso.",
+          variant: "success",
+        });
         setTimeout(() => {
           fetchProducts();
         }, 100);
       } else {
         const errorData = await response.json();
-        console.error("❌ Erro ao deletar produto:", errorData);
-        alert(
-          `Erro ao deletar produto: ${errorData.error || "Erro desconhecido"}`
-        );
+        toast({
+          title: "Erro ao deletar produto",
+          description: errorData.error || "Erro desconhecido.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("❌ Erro ao deletar produto:", error);
-      alert(
-        "Erro ao deletar produto. Verifique sua conexão e tente novamente."
-      );
+      toast({
+        title: "Erro ao deletar produto",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteCustomer = async (id: number) => {
-    if (!confirm("Tem certeza que deseja excluir este cliente?")) {
-      return;
-    }
-
     try {
-      console.log("📡 Deletando cliente:", id);
-
       const response = await fetch(`/api/customers/${id}`, {
         method: "DELETE",
       });
-
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Cliente deletado:", result.message);
+        toast({
+          title: "Cliente deletado!",
+          description: "O cliente foi removido com sucesso.",
+          variant: "success",
+        });
         fetchCustomers();
       } else {
         const errorData = await response.json();
-        console.error("❌ Erro ao deletar cliente:", errorData);
-        alert(
-          `Erro ao deletar cliente: ${errorData.error || "Erro desconhecido"}`
-        );
+        toast({
+          title: "Erro ao deletar cliente",
+          description: errorData.error || "Erro desconhecido.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("❌ Erro ao deletar cliente:", error);
-      alert(
-        "Erro ao deletar cliente. Verifique sua conexão e tente novamente."
-      );
+      toast({
+        title: "Erro ao deletar cliente",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -305,9 +295,12 @@ function DashboardContent() {
     const notes = productionNotes[productId] || "";
 
     if (quantity <= 0) {
-      alert(
-        "Por favor, insira uma quantidade válida para adicionar ao estoque."
-      );
+      toast({
+        title: "Quantidade inválida",
+        description:
+          "Por favor, insira uma quantidade válida para adicionar ao estoque.",
+        variant: "destructive",
+      });
       return;
     }
 
@@ -330,7 +323,11 @@ function DashboardContent() {
 
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Produção adicionada:", result.message);
+        toast({
+          title: "Produção registrada!",
+          description: "A quantidade foi adicionada ao estoque com sucesso.",
+          variant: "success",
+        });
 
         // Limpar os campos
         setProductionQuantities((prev) => {
@@ -353,18 +350,18 @@ function DashboardContent() {
         fetchProducts();
       } else {
         const errorData = await response.json();
-        console.error("❌ Erro ao adicionar produção:", errorData);
-        alert(
-          `Erro ao adicionar produção: ${
-            errorData.error || "Erro desconhecido"
-          }`
-        );
+        toast({
+          title: "Erro ao adicionar produção",
+          description: errorData.error || "Erro desconhecido.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("❌ Erro ao adicionar produção:", error);
-      alert(
-        "Erro ao adicionar produção. Verifique sua conexão e tente novamente."
-      );
+      toast({
+        title: "Erro ao adicionar produção",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -440,38 +437,33 @@ function DashboardContent() {
   };
 
   const handleDeleteSale = async (id: number) => {
-    if (
-      !confirm(
-        "Tem certeza que deseja excluir esta venda? O estoque do produto será restaurado."
-      )
-    ) {
-      return;
-    }
-
     try {
-      console.log("📡 Deletando venda:", id);
-
       const response = await fetch(`/api/sales/${id}`, {
         method: "DELETE",
       });
-
       if (response.ok) {
         const result = await response.json();
-        console.log("✅ Venda deletada:", result.message);
-
-        // Atualizar vendas e produtos (para refletir o estoque restaurado)
+        toast({
+          title: "Venda deletada!",
+          description: "A venda foi removida e o estoque restaurado.",
+          variant: "success",
+        });
         fetchSales();
         fetchProducts();
       } else {
         const errorData = await response.json();
-        console.error("❌ Erro ao deletar venda:", errorData);
-        alert(
-          `Erro ao deletar venda: ${errorData.error || "Erro desconhecido"}`
-        );
+        toast({
+          title: "Erro ao deletar venda",
+          description: errorData.error || "Erro desconhecido.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
-      console.error("❌ Erro ao deletar venda:", error);
-      alert("Erro ao deletar venda. Verifique sua conexão e tente novamente.");
+      toast({
+        title: "Erro ao deletar venda",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -735,7 +727,11 @@ function DashboardContent() {
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => handleDeleteProduct(product.id)}
+                                onClick={() => {
+                                  setItemToDelete(product);
+                                  setDeleteType("product");
+                                  setShowDeleteModal(true);
+                                }}
                                 className="flex-1 text-xs px-2 py-1 h-8"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
@@ -832,9 +828,11 @@ function DashboardContent() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() =>
-                                      handleDeleteCustomer(customer.id)
-                                    }
+                                    onClick={() => {
+                                      setItemToDelete(customer);
+                                      setDeleteType("customer");
+                                      setShowDeleteModal(true);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -904,7 +902,11 @@ function DashboardContent() {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => handleDeleteSale(sale.id)}
+                                    onClick={() => {
+                                      setItemToDelete(sale);
+                                      setDeleteType("sale");
+                                      setShowDeleteModal(true);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -1115,7 +1117,11 @@ function DashboardContent() {
                               <Button
                                 variant="destructive"
                                 size="sm"
-                                onClick={() => handleDeleteProduct(product.id)}
+                                onClick={() => {
+                                  setItemToDelete(product);
+                                  setDeleteType("product");
+                                  setShowDeleteModal(true);
+                                }}
                                 className="flex-1 text-xs px-2 py-1 h-8"
                               >
                                 <Trash2 className="w-3 h-3 mr-1" />
@@ -1187,9 +1193,11 @@ function DashboardContent() {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() =>
-                                      handleDeleteCustomer(customer.id)
-                                    }
+                                    onClick={() => {
+                                      setItemToDelete(customer);
+                                      setDeleteType("customer");
+                                      setShowDeleteModal(true);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -1259,7 +1267,11 @@ function DashboardContent() {
                                   <Button
                                     variant="destructive"
                                     size="sm"
-                                    onClick={() => handleDeleteSale(sale.id)}
+                                    onClick={() => {
+                                      setItemToDelete(sale);
+                                      setDeleteType("sale");
+                                      setShowDeleteModal(true);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
@@ -1363,6 +1375,55 @@ function DashboardContent() {
           }}
         />
       )}
+
+      {/* Modal de confirmação */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent>
+          <h2 className="text-lg font-bold mb-2">Confirmar exclusão</h2>
+          {deleteType === "product" && (
+            <p>
+              Tem certeza que deseja deletar o produto{" "}
+              <b>{itemToDelete?.name}</b>? Esta ação não pode ser desfeita.
+            </p>
+          )}
+          {deleteType === "customer" && (
+            <p>
+              Tem certeza que deseja deletar o cliente{" "}
+              <b>{itemToDelete?.name}</b>? Esta ação não pode ser desfeita.
+            </p>
+          )}
+          {deleteType === "sale" && (
+            <p>
+              Tem certeza que deseja deletar esta venda? O estoque do produto
+              será restaurado.
+            </p>
+          )}
+          <div className="flex gap-2 mt-4">
+            <Button variant="outline" onClick={() => setShowDeleteModal(false)}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={async () => {
+                setShowDeleteModal(false);
+                if (deleteType === "product" && itemToDelete) {
+                  await handleDeleteProduct(itemToDelete.id);
+                }
+                if (deleteType === "customer" && itemToDelete) {
+                  await handleDeleteCustomer(itemToDelete.id);
+                }
+                if (deleteType === "sale" && itemToDelete) {
+                  await handleDeleteSale(itemToDelete.id);
+                }
+                setItemToDelete(null);
+                setDeleteType(null);
+              }}
+            >
+              Confirmar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

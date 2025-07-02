@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { saleSchema, type SaleInput } from "@/lib/validations";
 import { formatCurrency } from "@/lib/utils";
 import type { Product, Customer } from "@/lib/prisma";
+import { useToast } from "@/hooks/use-toast";
 
 interface SaleFormProps {
   onSuccess: () => void;
@@ -29,6 +30,7 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const { toast } = useToast();
 
   const {
     register,
@@ -100,10 +102,20 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         throw new Error(error.error || "Erro ao registrar venda");
       }
 
+      toast({
+        title: "Venda registrada!",
+        description: "A venda foi registrada com sucesso.",
+        variant: "success",
+      });
       onSuccess();
     } catch (error) {
       console.error("Erro:", error);
-      alert(error instanceof Error ? error.message : "Erro ao registrar venda");
+      toast({
+        title: "Erro ao registrar venda",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

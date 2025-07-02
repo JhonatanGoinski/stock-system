@@ -17,6 +17,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { productSchema, type ProductInput } from "@/lib/validations";
 import type { Product } from "@/lib/prisma";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductFormProps {
   product?: Product;
@@ -41,6 +42,7 @@ export function ProductForm({
   onCancel,
 }: ProductFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const {
     register,
@@ -85,10 +87,22 @@ export function ProductForm({
         throw new Error("Erro ao salvar produto");
       }
 
+      toast({
+        title: product ? "Produto atualizado!" : "Produto cadastrado!",
+        description: product
+          ? "O produto foi atualizado com sucesso."
+          : "O produto foi cadastrado com sucesso.",
+        variant: "success",
+      });
       onSuccess();
     } catch (error) {
       console.error("Erro:", error);
-      alert("Erro ao salvar produto");
+      toast({
+        title: "Erro ao salvar produto",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive",
+      });
     } finally {
       setIsLoading(false);
     }

@@ -1,25 +1,31 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { customerSchema, type CustomerInput } from "@/lib/validations"
-import type { Customer } from "@/lib/prisma"
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { customerSchema, type CustomerInput } from "@/lib/validations";
+import type { Customer } from "@/lib/prisma";
+import { useToast } from "@/hooks/use-toast";
 
 interface CustomerFormProps {
-  customer?: Customer
-  onSuccess: () => void
-  onCancel: () => void
+  customer?: Customer;
+  onSuccess: () => void;
+  onCancel: () => void;
 }
 
-export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProps) {
-  const [isLoading, setIsLoading] = useState(false)
+export function CustomerForm({
+  customer,
+  onSuccess,
+  onCancel,
+}: CustomerFormProps) {
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
   const {
     register,
@@ -45,39 +51,53 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
       : {
           is_active: true,
         },
-  })
+  });
 
-  const isActive = watch("is_active")
+  const isActive = watch("is_active");
 
   const onSubmit = async (data: CustomerInput) => {
-    setIsLoading(true)
+    setIsLoading(true);
     try {
-      const url = customer ? `/api/customers/${customer.id}` : "/api/customers"
-      const method = customer ? "PUT" : "POST"
+      const url = customer ? `/api/customers/${customer.id}` : "/api/customers";
+      const method = customer ? "PUT" : "POST";
 
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
-      })
+      });
 
       if (!response.ok) {
-        throw new Error("Erro ao salvar cliente")
+        throw new Error("Erro ao salvar cliente");
       }
 
-      onSuccess()
+      toast({
+        title: customer ? "Cliente atualizado!" : "Cliente cadastrado!",
+        description: customer
+          ? "O cliente foi atualizado com sucesso."
+          : "O cliente foi cadastrado com sucesso.",
+        variant: "success",
+      });
+      onSuccess();
     } catch (error) {
-      console.error("Erro:", error)
-      alert("Erro ao salvar cliente")
+      console.error("Erro:", error);
+      toast({
+        title: "Erro ao salvar cliente",
+        description:
+          error instanceof Error ? error.message : "Erro desconhecido.",
+        variant: "destructive",
+      });
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-full max-w-4xl mx-auto">
       <CardHeader>
-        <CardTitle>{customer ? "Editar Cliente" : "Adicionar Cliente"}</CardTitle>
+        <CardTitle>
+          {customer ? "Editar Cliente" : "Adicionar Cliente"}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
@@ -87,24 +107,45 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Nome Completo *</Label>
-                <Input id="name" {...register("name")} placeholder="Nome do cliente" />
-                {errors.name && <p className="text-sm text-red-500">{errors.name.message}</p>}
+                <Input
+                  id="name"
+                  {...register("name")}
+                  placeholder="Nome do cliente"
+                />
+                {errors.name && (
+                  <p className="text-sm text-red-500">{errors.name.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
-                <Input id="email" type="email" {...register("email")} placeholder="email@exemplo.com" />
-                {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
+                <Input
+                  id="email"
+                  type="email"
+                  {...register("email")}
+                  placeholder="email@exemplo.com"
+                />
+                {errors.email && (
+                  <p className="text-sm text-red-500">{errors.email.message}</p>
+                )}
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="phone">Telefone</Label>
-                <Input id="phone" {...register("phone")} placeholder="(11) 99999-9999" />
+                <Input
+                  id="phone"
+                  {...register("phone")}
+                  placeholder="(11) 99999-9999"
+                />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="document">CPF/CNPJ</Label>
-                <Input id="document" {...register("document")} placeholder="000.000.000-00" />
+                <Input
+                  id="document"
+                  {...register("document")}
+                  placeholder="000.000.000-00"
+                />
               </div>
             </div>
           </div>
@@ -115,24 +156,45 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="address">Endereço Completo</Label>
-                <Input id="address" {...register("address")} placeholder="Rua, número, complemento" />
+                <Input
+                  id="address"
+                  {...register("address")}
+                  placeholder="Rua, número, complemento"
+                />
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="city">Cidade</Label>
-                  <Input id="city" {...register("city")} placeholder="São Paulo" />
+                  <Input
+                    id="city"
+                    {...register("city")}
+                    placeholder="São Paulo"
+                  />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="state">Estado</Label>
-                  <Input id="state" {...register("state")} placeholder="SP" maxLength={2} />
-                  {errors.state && <p className="text-sm text-red-500">{errors.state.message}</p>}
+                  <Input
+                    id="state"
+                    {...register("state")}
+                    placeholder="SP"
+                    maxLength={2}
+                  />
+                  {errors.state && (
+                    <p className="text-sm text-red-500">
+                      {errors.state.message}
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="zip_code">CEP</Label>
-                  <Input id="zip_code" {...register("zip_code")} placeholder="00000-000" />
+                  <Input
+                    id="zip_code"
+                    {...register("zip_code")}
+                    placeholder="00000-000"
+                  />
                 </div>
               </div>
             </div>
@@ -174,5 +236,5 @@ export function CustomerForm({ customer, onSuccess, onCancel }: CustomerFormProp
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }
