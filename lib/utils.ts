@@ -463,7 +463,8 @@ export function isVercel(): boolean {
 export function createDateRangeForEnvironment(date?: Date | string) {
   const inputDate = date ? new Date(date) : new Date();
 
-  // Criar data base com horário zerado
+  // Criar data base com horário zerado (sem compensação de timezone)
+  // Como estamos salvando datas sem timezone, não precisamos compensar
   const baseDate = new Date(
     inputDate.getFullYear(),
     inputDate.getMonth(),
@@ -485,20 +486,9 @@ export function createDateRangeForEnvironment(date?: Date | string) {
     999
   );
 
-  // O banco salva em UTC, então precisamos compensar para pegar a data local correta
-  // Se estamos no dia 26 às 23:44 (Brasil), no banco fica dia 27 às 02:44 (UTC)
-  // Para pegar vendas do dia 26, precisamos incluir o período UTC que corresponde ao dia 26 local
-
-  // Compensar 3 horas (UTC-3 do Brasil)
-  const localStart = new Date(startOfDay);
-  localStart.setHours(localStart.getHours() - 3); // Voltar 3 horas para pegar o início do dia local
-
-  const localEnd = new Date(endOfDay);
-  localEnd.setHours(localEnd.getHours() - 3); // Voltar 3 horas para pegar o fim do dia local
-
   return {
-    start: localStart,
-    end: localEnd,
-    note: "Compensando UTC-3 do Brasil para pegar data local correta",
+    start: startOfDay,
+    end: endOfDay,
+    note: "Usando datas locais sem compensação de timezone (consistente com forceDateWithoutTimezone)",
   };
 }
