@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { productSchema, type ProductInput } from "@/lib/validations";
 import type { Product } from "@/lib/prisma";
 import { useToast } from "@/hooks/use-toast";
+import { Building2, Factory } from "lucide-react";
 
 interface ProductFormProps {
   product?: Product;
@@ -42,6 +43,10 @@ export function ProductForm({
   onCancel,
 }: ProductFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [companies, setCompanies] = useState<
+    Array<{ id: number; name: string }>
+  >([]);
+  const [isLoadingCompanies, setIsLoadingCompanies] = useState(true);
   const { toast } = useToast();
 
   const {
@@ -61,15 +66,40 @@ export function ProductForm({
           cost_price: Number(product.costPrice),
           sale_price: Number(product.salePrice),
           stock_quantity: product.stockQuantity,
+          company_id: product.companyId || null,
         }
       : {
           cost_price: 0,
           sale_price: 0,
           stock_quantity: 0,
+          company_id: null,
         },
   });
 
   const selectedCategory = watch("category");
+  const selectedCompanyId = watch("company_id");
+  const selectedCompanyValue = selectedCompanyId
+    ? selectedCompanyId.toString()
+    : "internal";
+
+  // Buscar empresas
+  useEffect(() => {
+    const fetchCompanies = async () => {
+      try {
+        const response = await fetch("/api/companies");
+        if (response.ok) {
+          const data = await response.json();
+          setCompanies(data);
+        }
+      } catch (error) {
+        console.error("Erro ao buscar empresas:", error);
+      } finally {
+        setIsLoadingCompanies(false);
+      }
+    };
+
+    fetchCompanies();
+  }, []);
 
   const onSubmit = async (data: ProductInput) => {
     setIsLoading(true);
@@ -163,6 +193,42 @@ export function ProductForm({
               placeholder="Descrição do produto"
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="company_id">Empresa</Label>
+            <Select
+              value={selectedCompanyValue}
+              onValueChange={(value) =>
+                setValue(
+                  "company_id",
+                  value === "internal" ? null : Number(value)
+                )
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma empresa ou deixe para produção interna" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="internal">
+                  <div className="flex items-center gap-2">
+                    <Factory className="w-4 h-4" />
+                    Produção Interna
+                  </div>
+                </SelectItem>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id.toString()}>
+                    <div className="flex items-center gap-2">
+                      <Building2 className="w-4 h-4" />
+                      {company.name}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Deixe em branco para produtos da própria fábrica
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

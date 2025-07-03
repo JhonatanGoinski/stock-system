@@ -46,6 +46,14 @@ export async function GET() {
 
     const products = await prisma.product.findMany({
       orderBy: { createdAt: "desc" },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     const formattedProducts = products.map((product) => ({
@@ -131,6 +139,7 @@ export async function POST(request: NextRequest) {
         costPrice: validatedData.cost_price,
         salePrice: validatedData.sale_price,
         stockQuantity: validatedData.stock_quantity,
+        companyId: validatedData.company_id || null,
       },
     });
 

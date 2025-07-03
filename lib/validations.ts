@@ -11,6 +11,7 @@ export const productSchema = z.object({
     .number()
     .int()
     .min(0, "Quantidade deve ser um número inteiro positivo"),
+  company_id: z.number().int().positive().optional().nullable(),
 });
 
 export const customerSchema = z.object({

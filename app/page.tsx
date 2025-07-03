@@ -20,6 +20,7 @@ import {
 import { ProductForm } from "@/components/product-form";
 import { CustomerForm } from "@/components/customer-form";
 import { SaleForm } from "@/components/sale-form";
+import { CompanyForm } from "@/components/company-form";
 import { ReportsPage } from "@/components/reports-page";
 import { MobileHeader } from "@/components/mobile-header";
 import { MobileTabs } from "@/components/mobile-tabs";
@@ -38,6 +39,8 @@ import {
   ChevronDown,
   Factory,
   Calendar,
+  Building2,
+  PowerOff,
 } from "lucide-react";
 import { DashboardStats } from "@/components/dashboard-stats";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -47,10 +50,20 @@ import { SalesFilter } from "@/components/sales-filter";
 import { CustomersFilter } from "@/components/customers-filter";
 import { Input } from "@/components/ui/input";
 import { ProductionHistory } from "@/components/production-history";
+import { TopProductionRanking } from "@/components/top-production-ranking";
+import { CompaniesProductsList } from "@/components/companies-products-list";
 import { useToast } from "@/hooks/use-toast";
+import { CompaniesInactiveList } from "@/components/companies-list";
 
 export default function Home() {
   const { data: session, status } = useSession();
+  const [showInactiveCompanies, setShowInactiveCompanies] = useState(false);
+  const [inactiveCompanies, setInactiveCompanies] = useState<any[]>([]);
+  const [inactiveCompaniesFilter, setInactiveCompaniesFilter] = useState("");
+  const [inactiveCompaniesPage, setInactiveCompaniesPage] = useState(1);
+  const [inactiveCompaniesLoading, setInactiveCompaniesLoading] =
+    useState(false);
+  const INACTIVE_COMPANIES_PAGE_SIZE = 5;
 
   // Se não estiver logado, mostrar a landing page
   if (status === "loading") {
@@ -76,6 +89,49 @@ export default function Home() {
   );
 }
 
+function ProductsHeaderActions({
+  productionMode,
+  setProductionMode,
+  setShowProductForm,
+}: {
+  productionMode: boolean;
+  setProductionMode: React.Dispatch<React.SetStateAction<boolean>>;
+  setShowProductForm: React.Dispatch<React.SetStateAction<boolean>>;
+}) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:w-auto sm:gap-2">
+      <Button
+        variant={productionMode ? "default" : "outline"}
+        onClick={() => setProductionMode(!productionMode)}
+        size="sm"
+        className="sm:w-auto"
+      >
+        {productionMode ? (
+          <>
+            <Package className="w-4 h-4 mr-2" />
+            Modo Normal
+          </>
+        ) : (
+          <>
+            <Factory className="w-4 h-4 mr-2" />
+            Modo Produção
+          </>
+        )}
+      </Button>
+      {productionMode && (
+        <Button
+          onClick={() => setShowProductForm(true)}
+          size="sm"
+          className="sm:w-auto"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Adicionar Produto
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function DashboardContent() {
   const { data: session, status } = useSession();
   const [products, setProducts] = useState<Product[]>([]);
@@ -84,9 +140,13 @@ function DashboardContent() {
   const [showProductForm, setShowProductForm] = useState(false);
   const [showCustomerForm, setShowCustomerForm] = useState(false);
   const [showSaleForm, setShowSaleForm] = useState(false);
+  const [showCompanyForm, setShowCompanyForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isProductsLoading, setIsProductsLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [isActionLoading, setIsActionLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showMoreProducts, setShowMoreProducts] = useState(false);
   const [productsLimit] = useState(10); // Limite inicial de produtos
@@ -115,6 +175,13 @@ function DashboardContent() {
     "product" | "customer" | "sale" | null
   >(null);
   const [itemToDelete, setItemToDelete] = useState<any>(null);
+  const [showInactiveCompanies, setShowInactiveCompanies] = useState(false);
+  const [inactiveCompanies, setInactiveCompanies] = useState<any[]>([]);
+  const [inactiveCompaniesFilter, setInactiveCompaniesFilter] = useState("");
+  const [inactiveCompaniesPage, setInactiveCompaniesPage] = useState(1);
+  const [inactiveCompaniesLoading, setInactiveCompaniesLoading] =
+    useState(false);
+  const INACTIVE_COMPANIES_PAGE_SIZE = 5;
 
   useEffect(() => {
     fetchProducts();
@@ -124,6 +191,7 @@ function DashboardContent() {
 
   const fetchProducts = async () => {
     try {
+      setIsProductsLoading(true);
       console.log("📡 Buscando produtos atualizados...");
 
       // Forçar atualização sem cache
@@ -153,6 +221,7 @@ function DashboardContent() {
       console.error("❌ Erro ao buscar produtos:", error);
     } finally {
       setIsLoading(false);
+      setIsProductsLoading(false);
     }
   };
 
@@ -196,6 +265,9 @@ function DashboardContent() {
         });
         setTimeout(() => {
           fetchProducts();
+          setRefreshTrigger((prev) => prev + 1);
+          setIsActionLoading(true);
+          setTimeout(() => setIsActionLoading(false), 1000);
         }, 100);
       } else {
         const errorData = await response.json();
@@ -248,7 +320,12 @@ function DashboardContent() {
     setShowProductForm(false);
     setEditingProduct(null);
     setShowMoreProducts(false);
+    setIsActionLoading(true);
+    // Forçar recarregamento dos dados
     fetchProducts();
+    setRefreshTrigger((prev) => prev + 1);
+    // Desativar loading após um tempo
+    setTimeout(() => setIsActionLoading(false), 1000);
   };
 
   const handleCustomerFormSuccess = () => {
@@ -257,10 +334,102 @@ function DashboardContent() {
     fetchCustomers();
   };
 
+  const handleCompanyFormSuccess = () => {
+    setShowCompanyForm(false);
+    setIsActionLoading(true);
+    // Recarregar produtos para atualizar a lista de empresas
+    fetchProducts();
+    setRefreshTrigger((prev) => prev + 1);
+    // Desativar loading após um tempo
+    setTimeout(() => setIsActionLoading(false), 1000);
+  };
+
+  const handleToggleCompanyStatus = async (
+    companyId: number,
+    isActive: boolean
+  ) => {
+    try {
+      const response = await fetch(
+        `/api/companies/${companyId}/toggle-status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive }),
+        }
+      );
+
+      if (response.ok) {
+        toast({
+          title: isActive ? "Empresa ativada!" : "Empresa desativada!",
+          description: isActive
+            ? "A empresa foi ativada e seus produtos estão disponíveis para venda."
+            : "A empresa foi desativada e seus produtos não estão mais disponíveis para venda.",
+          variant: "success",
+        });
+        // Recarregar dados
+        fetchProducts();
+        setRefreshTrigger((prev) => prev + 1);
+        setIsActionLoading(true);
+        setTimeout(() => setIsActionLoading(false), 1000);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: "Erro ao alterar status da empresa",
+          description: errorData.error || "Erro desconhecido.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao alterar status da empresa",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteCompany = async (companyId: number) => {
+    try {
+      const response = await fetch(`/api/companies/${companyId}/delete`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast({
+          title: "Empresa deletada!",
+          description: `A empresa "${result.deletedCompany}" foi removida com sucesso.`,
+          variant: "success",
+        });
+        // Recarregar dados
+        fetchProducts();
+        setRefreshTrigger((prev) => prev + 1);
+        setIsActionLoading(true);
+        setTimeout(() => setIsActionLoading(false), 1000);
+      } else {
+        const errorData = await response.json();
+        toast({
+          title: errorData.error || "Erro ao deletar empresa",
+          description: errorData.message || "Erro desconhecido.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro ao deletar empresa",
+        description: "Verifique sua conexão e tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaleFormSuccess = () => {
     setShowSaleForm(false);
     fetchProducts();
     fetchSales();
+    setRefreshTrigger((prev) => prev + 1);
+    setIsActionLoading(true);
+    setTimeout(() => setIsActionLoading(false), 1000);
   };
 
   const handleProductionQuantityChange = (
@@ -348,6 +517,9 @@ function DashboardContent() {
 
         // Atualizar a lista de produtos
         fetchProducts();
+        setRefreshTrigger((prev) => prev + 1);
+        setIsActionLoading(true);
+        setTimeout(() => setIsActionLoading(false), 1000);
       } else {
         const errorData = await response.json();
         toast({
@@ -450,6 +622,9 @@ function DashboardContent() {
         });
         fetchSales();
         fetchProducts();
+        setRefreshTrigger((prev) => prev + 1);
+        setIsActionLoading(true);
+        setTimeout(() => setIsActionLoading(false), 1000);
       } else {
         const errorData = await response.json();
         toast({
@@ -464,6 +639,76 @@ function DashboardContent() {
         description: "Verifique sua conexão e tente novamente.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Buscar empresas inativas com filtro e paginação
+  const fetchInactiveCompanies = async (filter = "", page = 1) => {
+    setInactiveCompaniesLoading(true);
+    try {
+      const params = new URLSearchParams();
+      params.append("isActive", "false");
+      if (filter) params.append("name", filter);
+      params.append("page", String(page));
+      params.append("pageSize", String(INACTIVE_COMPANIES_PAGE_SIZE));
+      const response = await fetch(`/api/companies?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        setInactiveCompanies(data);
+      } else {
+        setInactiveCompanies([]);
+      }
+    } catch (e) {
+      setInactiveCompanies([]);
+    } finally {
+      setInactiveCompaniesLoading(false);
+    }
+  };
+
+  // Função para reativar empresa
+  const handleReactivateCompany = async (companyId: number) => {
+    try {
+      const response = await fetch(
+        `/api/companies/${companyId}/toggle-status`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isActive: true }),
+        }
+      );
+      if (response.ok) {
+        toast({
+          title: "Empresa reativada!",
+          description: "A empresa foi reativada com sucesso.",
+          variant: "success",
+        });
+        fetchProducts();
+        setRefreshTrigger((prev) => prev + 1);
+        // Atualizar lista de inativas
+        fetchInactiveCompanies(inactiveCompaniesFilter, inactiveCompaniesPage);
+      } else {
+        toast({
+          title: "Erro ao reativar empresa",
+          description: "Tente novamente.",
+          variant: "destructive",
+        });
+      }
+    } catch (e) {
+      toast({
+        title: "Erro ao reativar empresa",
+        description: "Tente novamente.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Ao trocar de aba, se for para produtos, mostrar loading
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "products") {
+      setProducts([]);
+      setIsProductsLoading(true);
+      fetchProducts();
     }
   };
 
@@ -495,7 +740,7 @@ function DashboardContent() {
             <div className="hidden md:block">
               <Tabs
                 value={activeTab}
-                onValueChange={setActiveTab}
+                onValueChange={handleTabChange}
                 className="space-y-6"
               >
                 <TabsList className="grid w-full grid-cols-5">
@@ -541,233 +786,80 @@ function DashboardContent() {
                 </TabsContent>
 
                 <TabsContent value="products" className="space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h2 className="text-3xl font-bold">Produtos</h2>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button
-                        onClick={() => setShowProductForm(true)}
-                        className="w-full sm:w-auto"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Adicionar Produto
-                      </Button>
-                      <Button
-                        variant={productionMode ? "default" : "outline"}
-                        onClick={() => setProductionMode(!productionMode)}
-                        className="w-full sm:w-auto"
-                      >
-                        {productionMode ? (
-                          <>
-                            <Package className="w-4 h-4 mr-2" />
-                            Modo Normal
-                          </>
-                        ) : (
-                          <>
-                            <Factory className="w-4 h-4 mr-2" />
-                            Modo Produção
-                          </>
-                        )}
-                      </Button>
+                  {isProductsLoading ? (
+                    <div className="flex items-center justify-center h-64">
+                      <div className="text-center">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+                        <p className="mt-2 text-muted-foreground">
+                          Carregando produtos...
+                        </p>
+                      </div>
                     </div>
-                  </div>
-
-                  {/* Filtro select de produtos */}
-                  <div className="mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-                    <label className="text-sm font-medium">
-                      Filtrar produto:
-                    </label>
-                    <select
-                      className="border rounded px-2 py-1 text-sm"
-                      value={selectedProductId || ""}
-                      onChange={(e) => {
-                        setSelectedProductId(
-                          e.target.value ? Number(e.target.value) : null
-                        );
-                      }}
-                    >
-                      <option value="">Todos</option>
-                      {products.map((prod) => (
-                        <option key={prod.id} value={prod.id}>
-                          {prod.name} (Categoria: {prod.category}
-                          {prod.size ? `, Tam: ${prod.size}` : ""})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Card>
-                    <CardContent className="p-0">
-                      <div className="max-h-[600px] overflow-y-auto">
-                        {(selectedProductId
-                          ? products.filter((p) => p.id === selectedProductId)
-                          : products
-                        ).map((product) => (
-                          <div
-                            key={product.id}
-                            className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h3 className="font-semibold text-lg">
-                                  {product.name}
-                                </h3>
-                                <p className="text-muted-foreground">
-                                  R$ {Number(product.salePrice).toFixed(2)}
-                                </p>
-                              </div>
-                              <Badge
-                                variant={getStockBadgeVariant(
-                                  product.stockQuantity
-                                )}
-                              >
-                                {product.stockQuantity} em estoque
-                              </Badge>
-                            </div>
-
-                            {productionMode && (
-                              <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <Factory className="w-4 h-4 text-primary" />
-                                  <span className="text-sm font-medium">
-                                    Adicionar Produção
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedProductForHistory({
-                                        id: product.id,
-                                        name: product.name,
-                                      });
-                                      setShowProductionHistory(true);
-                                    }}
-                                    className="text-xs px-2 py-1 h-6 ml-auto"
-                                  >
-                                    <Calendar className="w-3 h-3 mr-1" />
-                                    Histórico
-                                  </Button>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      placeholder="Qtd"
-                                      value={
-                                        productionQuantities[product.id] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleProductionQuantityChange(
-                                          product.id,
-                                          parseInt(e.target.value) || 0
-                                        )
-                                      }
-                                      className="w-16 h-8 text-xs"
-                                    />
-                                    <Input
-                                      type="date"
-                                      value={
-                                        productionDates[product.id] ||
-                                        getCurrentDateString()
-                                      }
-                                      onChange={(e) =>
-                                        handleProductionDateChange(
-                                          product.id,
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-32 h-8 text-xs"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="text"
-                                      placeholder="Observações (opcional)"
-                                      value={productionNotes[product.id] || ""}
-                                      onChange={(e) =>
-                                        handleProductionNotesChange(
-                                          product.id,
-                                          e.target.value
-                                        )
-                                      }
-                                      className="flex-1 h-8 text-xs"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={() =>
-                                        handleAddProduction(product.id)
-                                      }
-                                      disabled={
-                                        !productionQuantities[product.id] ||
-                                        productionQuantities[product.id] <= 0
-                                      }
-                                      className="text-xs px-2 py-1 h-8"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Adicionar
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingProduct(product);
-                                  setShowProductForm(true);
-                                }}
-                                className="flex-1 text-xs px-2 py-1 h-8"
-                              >
-                                <Edit className="w-3 h-3 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setItemToDelete(product);
-                                  setDeleteType("product");
-                                  setShowDeleteModal(true);
-                                }}
-                                className="flex-1 text-xs px-2 py-1 h-8"
-                              >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-center">
+                        <h2 className="text-3xl font-bold">
+                          {productionMode ? "Produção" : "Produtos"}
+                        </h2>
+                        <ProductsHeaderActions
+                          productionMode={productionMode}
+                          setProductionMode={setProductionMode}
+                          setShowProductForm={setShowProductForm}
+                        />
                       </div>
 
-                      {products.length > productsLimit && (
-                        <div className="p-4 border-t">
-                          <Button
-                            variant="outline"
-                            onClick={() =>
-                              setShowMoreProducts(!showMoreProducts)
-                            }
-                            className="w-full"
-                          >
-                            {showMoreProducts ? (
-                              <>
-                                <ChevronUp className="mr-2 h-4 w-4" />
-                                Ver Menos ({productsLimit} produtos)
-                              </>
-                            ) : (
-                              <>
-                                <ChevronDown className="mr-2 h-4 w-4" />
-                                Ver Mais ({products.length - productsLimit}{" "}
-                                produtos restantes)
-                              </>
-                            )}
-                          </Button>
+                      {/* Ranking de produtos mais produzidos - apenas no modo normal */}
+                      {!productionMode && (
+                        <div className="mb-6">
+                          <TopProductionRanking />
                         </div>
                       )}
-                    </CardContent>
-                  </Card>
+
+                      {/* Lista de produtos organizada por empresa - SEMPRE renderizada */}
+                      <CompaniesProductsList
+                        onAddProduct={() => setShowProductForm(true)}
+                        onAddCompany={() => setShowCompanyForm(true)}
+                        onShowInactiveCompanies={() =>
+                          setShowInactiveCompanies(true)
+                        }
+                        onEditProduct={(product) => {
+                          const fullProduct = products.find(
+                            (p) => p.id === product.id
+                          );
+                          if (fullProduct) {
+                            setEditingProduct(fullProduct);
+                            setShowProductForm(true);
+                          }
+                        }}
+                        onDeleteProduct={(productId) => {
+                          setItemToDelete({ id: productId });
+                          setDeleteType("product");
+                          setShowDeleteModal(true);
+                        }}
+                        onAddProduction={handleAddProduction}
+                        onShowProductionHistory={(productId, productName) => {
+                          setSelectedProductForHistory({
+                            id: productId,
+                            name: productName,
+                          });
+                          setShowProductionHistory(true);
+                        }}
+                        onToggleCompanyStatus={handleToggleCompanyStatus}
+                        onDeleteCompany={handleDeleteCompany}
+                        productionQuantities={productionQuantities}
+                        productionDates={productionDates}
+                        productionNotes={productionNotes}
+                        onProductionQuantityChange={
+                          handleProductionQuantityChange
+                        }
+                        onProductionDateChange={handleProductionDateChange}
+                        onProductionNotesChange={handleProductionNotesChange}
+                        isProductionMode={productionMode}
+                        refreshTrigger={refreshTrigger}
+                        isActionLoading={isActionLoading}
+                      />
+                    </>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="customers" className="space-y-6">
@@ -932,207 +1024,64 @@ function DashboardContent() {
               {activeTab === "products" && (
                 <>
                   <div className="flex justify-between items-center mb-4">
-                    <h2 className="text-2xl font-bold">Produtos</h2>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                      <Button
-                        onClick={() => setShowProductForm(true)}
-                        className="w-full sm:w-auto"
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Adicionar Produto
-                      </Button>
-                      <Button
-                        variant={productionMode ? "default" : "outline"}
-                        onClick={() => setProductionMode(!productionMode)}
-                        className="w-full sm:w-auto"
-                      >
-                        {productionMode ? (
-                          <>
-                            <Package className="w-4 h-4 mr-2" />
-                            Modo Normal
-                          </>
-                        ) : (
-                          <>
-                            <Factory className="w-4 h-4 mr-2" />
-                            Modo Produção
-                          </>
-                        )}
-                      </Button>
+                    <h2 className="text-2xl font-bold">
+                      {productionMode ? "Produção" : "Produtos"}
+                    </h2>
+                    <ProductsHeaderActions
+                      productionMode={productionMode}
+                      setProductionMode={setProductionMode}
+                      setShowProductForm={setShowProductForm}
+                    />
+                  </div>
+
+                  {/* Ranking de produtos mais produzidos - apenas no modo normal */}
+                  {!productionMode && (
+                    <div className="mb-4">
+                      <TopProductionRanking />
                     </div>
-                  </div>
+                  )}
 
-                  {/* Filtro select de produtos - Mobile */}
-                  <div className="mb-4 flex flex-col gap-2">
-                    <label className="text-sm font-medium">
-                      Filtrar produto:
-                    </label>
-                    <select
-                      className="border rounded px-3 py-2 text-sm w-full"
-                      value={selectedProductId || ""}
-                      onChange={(e) => {
-                        setSelectedProductId(
-                          e.target.value ? Number(e.target.value) : null
-                        );
-                      }}
-                    >
-                      <option value="">Todos os produtos</option>
-                      {products.map((prod) => (
-                        <option key={prod.id} value={prod.id}>
-                          {prod.name} ({prod.category}
-                          {prod.size ? `, ${prod.size}` : ""})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <Card>
-                    <CardContent className="p-0">
-                      <div className="max-h-[600px] overflow-y-auto">
-                        {(selectedProductId
-                          ? products.filter((p) => p.id === selectedProductId)
-                          : products
-                        ).map((product) => (
-                          <div
-                            key={product.id}
-                            className="bg-card border rounded-lg p-4 hover:shadow-md transition-shadow"
-                          >
-                            <div className="flex justify-between items-start mb-2">
-                              <div>
-                                <h3 className="font-semibold text-lg">
-                                  {product.name}
-                                </h3>
-                                <p className="text-muted-foreground">
-                                  R$ {Number(product.salePrice).toFixed(2)}
-                                </p>
-                              </div>
-                              <Badge
-                                variant={getStockBadgeVariant(
-                                  product.stockQuantity
-                                )}
-                              >
-                                {product.stockQuantity} em estoque
-                              </Badge>
-                            </div>
-
-                            {productionMode && (
-                              <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
-                                <div className="flex items-center gap-2 mb-3">
-                                  <Factory className="w-4 h-4 text-primary" />
-                                  <span className="text-sm font-medium">
-                                    Adicionar Produção
-                                  </span>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={() => {
-                                      setSelectedProductForHistory({
-                                        id: product.id,
-                                        name: product.name,
-                                      });
-                                      setShowProductionHistory(true);
-                                    }}
-                                    className="text-xs px-2 py-1 h-6 ml-auto"
-                                  >
-                                    <Calendar className="w-3 h-3 mr-1" />
-                                    Histórico
-                                  </Button>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="number"
-                                      min="0"
-                                      placeholder="Qtd"
-                                      value={
-                                        productionQuantities[product.id] || ""
-                                      }
-                                      onChange={(e) =>
-                                        handleProductionQuantityChange(
-                                          product.id,
-                                          parseInt(e.target.value) || 0
-                                        )
-                                      }
-                                      className="w-16 h-8 text-xs"
-                                    />
-                                    <Input
-                                      type="date"
-                                      value={
-                                        productionDates[product.id] ||
-                                        getCurrentDateString()
-                                      }
-                                      onChange={(e) =>
-                                        handleProductionDateChange(
-                                          product.id,
-                                          e.target.value
-                                        )
-                                      }
-                                      className="w-32 h-8 text-xs"
-                                    />
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <Input
-                                      type="text"
-                                      placeholder="Observações (opcional)"
-                                      value={productionNotes[product.id] || ""}
-                                      onChange={(e) =>
-                                        handleProductionNotesChange(
-                                          product.id,
-                                          e.target.value
-                                        )
-                                      }
-                                      className="flex-1 h-8 text-xs"
-                                    />
-                                    <Button
-                                      size="sm"
-                                      onClick={() =>
-                                        handleAddProduction(product.id)
-                                      }
-                                      disabled={
-                                        !productionQuantities[product.id] ||
-                                        productionQuantities[product.id] <= 0
-                                      }
-                                      className="text-xs px-2 py-1 h-8"
-                                    >
-                                      <Plus className="w-3 h-3 mr-1" />
-                                      Adicionar
-                                    </Button>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            <div className="flex gap-2 mt-3">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  setEditingProduct(product);
-                                  setShowProductForm(true);
-                                }}
-                                className="flex-1 text-xs px-2 py-1 h-8"
-                              >
-                                <Edit className="w-3 h-3 mr-1" />
-                                Editar
-                              </Button>
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setItemToDelete(product);
-                                  setDeleteType("product");
-                                  setShowDeleteModal(true);
-                                }}
-                                className="flex-1 text-xs px-2 py-1 h-8"
-                              >
-                                <Trash2 className="w-3 h-3 mr-1" />
-                                Excluir
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
+                  {/* Lista de produtos organizada por empresa - UNIFICADA com desktop */}
+                  <CompaniesProductsList
+                    onAddProduct={() => setShowProductForm(true)}
+                    onAddCompany={() => setShowCompanyForm(true)}
+                    onShowInactiveCompanies={() =>
+                      setShowInactiveCompanies(true)
+                    }
+                    onEditProduct={(product) => {
+                      const fullProduct = products.find(
+                        (p) => p.id === product.id
+                      );
+                      if (fullProduct) {
+                        setEditingProduct(fullProduct);
+                        setShowProductForm(true);
+                      }
+                    }}
+                    onDeleteProduct={(productId) => {
+                      setItemToDelete({ id: productId });
+                      setDeleteType("product");
+                      setShowDeleteModal(true);
+                    }}
+                    onAddProduction={handleAddProduction}
+                    onShowProductionHistory={(productId, productName) => {
+                      setSelectedProductForHistory({
+                        id: productId,
+                        name: productName,
+                      });
+                      setShowProductionHistory(true);
+                    }}
+                    onToggleCompanyStatus={handleToggleCompanyStatus}
+                    onDeleteCompany={handleDeleteCompany}
+                    productionQuantities={productionQuantities}
+                    productionDates={productionDates}
+                    productionNotes={productionNotes}
+                    onProductionQuantityChange={handleProductionQuantityChange}
+                    onProductionDateChange={handleProductionDateChange}
+                    onProductionNotesChange={handleProductionNotesChange}
+                    isProductionMode={productionMode}
+                    refreshTrigger={refreshTrigger}
+                    isActionLoading={isActionLoading}
+                  />
                 </>
               )}
               {activeTab === "customers" && (
@@ -1364,6 +1313,25 @@ function DashboardContent() {
         </DialogContent>
       </Dialog>
 
+      <Dialog
+        open={showCompanyForm}
+        onOpenChange={(open) => {
+          if (!open) setShowCompanyForm(false);
+        }}
+      >
+        <DialogContent
+          className="max-w-2xl max-h-[90vh] overflow-y-auto sm:max-h-[85vh]"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
+          {showCompanyForm && (
+            <CompanyForm
+              onSuccess={handleCompanyFormSuccess}
+              onCancel={() => setShowCompanyForm(false)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Histórico de Produção */}
       {showProductionHistory && selectedProductForHistory && (
         <ProductionHistory
@@ -1424,6 +1392,21 @@ function DashboardContent() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal de empresas inativas */}
+      <CompaniesInactiveList
+        open={showInactiveCompanies}
+        onClose={() => setShowInactiveCompanies(false)}
+        companies={inactiveCompanies}
+        loading={inactiveCompaniesLoading}
+        filter={inactiveCompaniesFilter}
+        onFilterChange={setInactiveCompaniesFilter}
+        onReactivate={handleReactivateCompany}
+        onFetch={fetchInactiveCompanies}
+        page={inactiveCompaniesPage}
+        setPage={setInactiveCompaniesPage}
+        pageSize={INACTIVE_COMPANIES_PAGE_SIZE}
+      />
     </div>
   );
 }

@@ -167,6 +167,7 @@ export async function PUT(
         costPrice: validatedData.cost_price,
         salePrice: validatedData.sale_price,
         stockQuantity: validatedData.stock_quantity,
+        companyId: validatedData.company_id || null,
       },
     });
 
