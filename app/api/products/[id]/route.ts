@@ -169,6 +169,14 @@ export async function PUT(
         stockQuantity: validatedData.stock_quantity,
         companyId: validatedData.company_id || null,
       },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     const formattedProduct = {

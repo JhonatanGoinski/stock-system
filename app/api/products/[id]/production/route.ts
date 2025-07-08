@@ -102,9 +102,17 @@ export async function POST(
       );
     }
 
-    // Buscar o produto atual
+    // Buscar o produto atual com a relação company
     const currentProduct = await prisma.product.findUnique({
       where: { id: productId },
+      include: {
+        company: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
     });
 
     if (!currentProduct) {
@@ -122,6 +130,14 @@ export async function POST(
         data: {
           stockQuantity: {
             increment: quantity,
+          },
+        },
+        include: {
+          company: {
+            select: {
+              id: true,
+              name: true,
+            },
           },
         },
       });
@@ -148,9 +164,16 @@ export async function POST(
       productionDateString: dateToUse.toLocaleDateString("pt-BR"),
     });
 
+    // Formatar o produto para retornar valores numéricos
+    const formattedProduct = {
+      ...result.updatedProduct,
+      costPrice: Number(result.updatedProduct.costPrice),
+      salePrice: Number(result.updatedProduct.salePrice),
+    };
+
     return NextResponse.json({
       message: `Produção de ${quantity} unidades adicionada com sucesso`,
-      product: result.updatedProduct,
+      product: formattedProduct,
       productionRecord: result.productionRecord,
     });
   } catch (error) {
