@@ -166,14 +166,24 @@ export async function GET() {
               totalAmount: "desc",
             },
           },
-          take: 5,
+          take: 6,
         })
         .then(async (topProducts) => {
           // Buscar detalhes dos produtos em uma única consulta
           const productIds = topProducts.map((item) => item.productId);
           const products = await prisma.product.findMany({
             where: { id: { in: productIds } },
-            select: { id: true, name: true, category: true },
+            select: {
+              id: true,
+              name: true,
+              category: true,
+              company: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
           });
 
           // Mapear os resultados
@@ -182,6 +192,7 @@ export async function GET() {
             return {
               name: product?.name || "Produto não encontrado",
               category: product?.category || "",
+              company: product?.company?.name || null,
               total_sold: item._sum.quantity || 0,
               revenue: Number(item._sum.totalAmount || 0),
             };
@@ -209,7 +220,7 @@ export async function GET() {
               totalAmount: "desc",
             },
           },
-          take: 5,
+          take: 6,
         })
         .then(async (topCustomers) => {
           // Buscar detalhes dos clientes em uma única consulta
@@ -245,6 +256,12 @@ export async function GET() {
           category: true,
           stockQuantity: true,
           size: true,
+          company: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
         },
         orderBy: {
           stockQuantity: "asc",
@@ -416,7 +433,12 @@ export async function GET() {
       totalCustomers,
       topProducts: topProductsWithDetails,
       topCustomers: topCustomersWithDetails,
-      lowStockProducts,
+      lowStockProducts: lowStockProducts.map((product) => ({
+        name: product.name,
+        category: product.category,
+        company: product.company?.name || null,
+        stockQuantity: product.stockQuantity,
+      })),
       dailySales: completeDailySales,
     };
 

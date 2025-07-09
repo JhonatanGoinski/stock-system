@@ -5,6 +5,7 @@ import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { MobileNav } from "@/components/shared/mobile-nav";
 import { Dialog, DialogContent } from "@/components/shared/ui/dialog";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/shared/ui/button";
 
 interface MobileHeaderProps {
   activeTab: string;
@@ -14,6 +15,8 @@ interface MobileHeaderProps {
 export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
   const [showLowStockDialog, setShowLowStockDialog] = useState(false);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
+  const [lowStockCompanies, setLowStockCompanies] = useState<any[]>([]);
+  const [selectedCompany, setSelectedCompany] = useState<any>(null);
 
   useEffect(() => {
     // Polling para estoque baixo
@@ -22,12 +25,36 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
         .then((res) => res.json())
         .then((data) => {
           setLowStockProducts(data.lowStockProducts || []);
+          // Agrupar produtos por empresa
+          const companiesMap = new Map();
+          (data.lowStockProducts || []).forEach((product: any) => {
+            const companyName = product.company || "Produção Interna";
+            if (!companiesMap.has(companyName)) {
+              companiesMap.set(companyName, {
+                name: companyName,
+                products: [],
+                count: 0,
+              });
+            }
+            const company = companiesMap.get(companyName);
+            company.products.push(product);
+            company.count++;
+          });
+          setLowStockCompanies(Array.from(companiesMap.values()));
         });
     };
     fetchLowStock(); // Chamada inicial
     const lowStockInterval = setInterval(fetchLowStock, 10000); // 10 segundos
     return () => clearInterval(lowStockInterval);
   }, []);
+
+  const handleCompanyClick = (company: any) => {
+    setSelectedCompany(company);
+  };
+
+  const handleBackToCompanies = () => {
+    setSelectedCompany(null);
+  };
 
   return (
     <header className="sticky top-0 z-50 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/60">
@@ -59,19 +86,19 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
             className="relative"
             onClick={() => setShowLowStockDialog(true)}
             aria-label="Aviso de estoque baixo"
-            disabled={lowStockProducts.length === 0}
+            disabled={lowStockCompanies.length === 0}
           >
             <AlertCircle
               className={`h-6 w-6 ${
-                lowStockProducts.length > 0
+                lowStockCompanies.length > 0
                   ? "text-yellow-500 animate-bounce"
                   : "text-muted-foreground"
               }`}
               strokeWidth={2.2}
             />
-            {lowStockProducts.length > 0 && (
+            {lowStockCompanies.length > 0 && (
               <span className="absolute -top-1 -right-1 bg-yellow-500 text-white rounded-full w-4 h-4 flex items-center justify-center text-xs font-bold">
-                {lowStockProducts.length}
+                {lowStockCompanies.length}
               </span>
             )}
           </button>
@@ -82,34 +109,72 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
             <DialogContent>
               <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
                 <AlertCircle className="h-5 w-5 text-yellow-500" />
-                Produtos com Estoque Baixo
+                {selectedCompany
+                  ? `${selectedCompany.name} - Produtos com Estoque Baixo`
+                  : "Empresas com Estoque Baixo"}
               </h2>
-              {lowStockProducts.length === 0 ? (
+              {lowStockCompanies.length === 0 ? (
                 <p className="text-muted-foreground">
-                  Nenhum produto com estoque baixo.
+                  Nenhuma empresa com estoque baixo.
                 </p>
+              ) : selectedCompany ? (
+                <div className="max-h-60 overflow-y-auto">
+                  <div className="mb-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleBackToCompanies}
+                      className="mb-3"
+                    >
+                      ← Voltar para empresas
+                    </Button>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedCompany.products.map(
+                      (product: any, prodIdx: number) => (
+                        <div
+                          key={prodIdx}
+                          className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded"
+                        >
+                          <div>
+                            <p className="font-medium">{product.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {product.category} • {product.stockQuantity} em
+                              estoque
+                            </p>
+                          </div>
+                          <span
+                            className={`text-xs ${
+                              product.stockQuantity === 0
+                                ? "bg-red-500 text-white"
+                                : "bg-yellow-500 text-white"
+                            } rounded-full px-2 py-0.5 ml-2 font-semibold`}
+                          >
+                            {product.stockQuantity === 0
+                              ? "Sem estoque"
+                              : "Estoque baixo"}
+                          </span>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
               ) : (
                 <div className="max-h-60 overflow-y-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="text-left">
-                        <th className="py-1 pr-2">Nome</th>
-                        <th className="py-1 pr-2">Categoria</th>
-                        <th className="py-1 pr-2">Tamanho</th>
-                        <th className="py-1 pr-2">Qtd</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {lowStockProducts.map((prod, idx) => (
-                        <tr key={idx} className="border-b last:border-0">
-                          <td className="py-1 pr-2 font-medium">{prod.name}</td>
-                          <td className="py-1 pr-2">{prod.category}</td>
-                          <td className="py-1 pr-2">{prod.size || "-"}</td>
-                          <td className="py-1 pr-2">{prod.stockQuantity}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                  {lowStockCompanies.map((company, idx) => (
+                    <div
+                      key={idx}
+                      className="mb-4 border-b last:border-0 pb-4 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                      onClick={() => handleCompanyClick(company)}
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold">{company.name}</h3>
+                        <span className="text-xs bg-yellow-500 text-white rounded-full px-2 py-0.5 ml-2">
+                          {company.count} produtos
+                        </span>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </DialogContent>

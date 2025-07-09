@@ -19,7 +19,11 @@ import { useSales } from "@/hooks/sales/use-sales";
 import { useProduction } from "@/hooks/products/use-production";
 import { useCompanies } from "@/hooks/companies/use-companies";
 import { useDashboardContext } from "@/hooks/dashboard/use-dashboard-context";
-import type { Product, Customer, SaleWithDetails } from "@/lib/prisma";
+import type {
+  Product,
+  CustomerWithDetails,
+  SaleWithDetails,
+} from "@/lib/prisma";
 
 interface DashboardContentProps {
   activeTab: string;
@@ -41,7 +45,8 @@ export function DashboardContent({
     name: string;
   } | null>(null);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] =
+    useState<CustomerWithDetails | null>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<
     "product" | "customer" | "sale" | null
@@ -52,8 +57,14 @@ export function DashboardContent({
   // Hooks customizados
   const { products, fetchProducts, deleteProduct } = useProducts();
   const { addProduct, updateProduct } = useDashboardContext();
-  const { customers, fetchCustomers, deleteCustomer } = useCustomers();
-  const { sales, fetchSales, deleteSale } = useSales();
+  const {
+    customers,
+    fetchCustomers,
+    deleteCustomer,
+    addCustomer,
+    updateCustomer,
+  } = useCustomers();
+  const { sales, fetchSales, deleteSale, addSale, updateSale } = useSales();
   const { productionMode } = useProduction();
   const { triggerRefresh, isActionLoading, setIsActionLoading } =
     useDashboardContext();
@@ -128,14 +139,48 @@ export function DashboardContent({
     setTimeout(() => setIsActionLoading(false), 1000);
   };
 
-  const handleCustomerFormSuccess = () => {
+  const handleCustomerFormSuccess = (newCustomer?: CustomerWithDetails) => {
+    console.log("🔄 handleCustomerFormSuccess chamado com:", newCustomer);
+    console.log("🔄 editingCustomer:", editingCustomer);
+    console.log("🔄 Tipo do newCustomer:", typeof newCustomer);
+    console.log(
+      "🔄 Estrutura do newCustomer:",
+      JSON.stringify(newCustomer, null, 2)
+    );
+
     handleCloseCustomerForm();
-    triggerRefresh();
+
+    // Se temos um cliente novo/atualizado, adicionar/atualizar no estado local
+    if (newCustomer) {
+      console.log("🔄 Atualizando cliente no estado local:", newCustomer);
+      if (editingCustomer) {
+        // Atualizar cliente existente
+        console.log("🔄 Atualizando cliente existente");
+        updateCustomer(newCustomer);
+      } else {
+        // Adicionar novo cliente
+        console.log("🔄 Adicionando novo cliente");
+        addCustomer(newCustomer);
+      }
+    }
+
+    setIsActionLoading(true);
+    setTimeout(() => setIsActionLoading(false), 1000);
   };
 
-  const handleSaleFormSuccess = () => {
+  const handleSaleFormSuccess = (newSale?: SaleWithDetails) => {
+    console.log("🔄 handleSaleFormSuccess chamado com:", newSale);
+    console.log("🔄 Tipo do newSale:", typeof newSale);
+    console.log("🔄 Estrutura do newSale:", JSON.stringify(newSale, null, 2));
+
     handleCloseSaleForm();
-    triggerRefresh();
+
+    // Se temos uma venda nova, adicionar ao estado local
+    if (newSale) {
+      console.log("🔄 Adicionando nova venda:", newSale);
+      addSale(newSale);
+    }
+
     setIsActionLoading(true);
     setTimeout(() => setIsActionLoading(false), 1000);
   };
@@ -160,14 +205,16 @@ export function DashboardContent({
   const handleDeleteCustomerWithRefresh = async (id: number) => {
     const success = await deleteCustomer(id);
     if (success) {
-      triggerRefresh();
+      // O deleteCustomer já atualiza o estado local, não precisa de refresh
+      setIsActionLoading(true);
+      setTimeout(() => setIsActionLoading(false), 1000);
     }
   };
 
   const handleDeleteSaleWithRefresh = async (id: number) => {
     const success = await deleteSale(id);
     if (success) {
-      triggerRefresh();
+      // O deleteSale já atualiza o estado local, não precisa de refresh
       setIsActionLoading(true);
       setTimeout(() => setIsActionLoading(false), 1000);
     }
@@ -214,12 +261,12 @@ export function DashboardContent({
     setShowCustomerForm(true);
   };
 
-  const handleEditCustomer = (customer: Customer) => {
+  const handleEditCustomer = (customer: CustomerWithDetails) => {
     setEditingCustomer(customer);
     setShowCustomerForm(true);
   };
 
-  const handleDeleteCustomer = (customer: Customer) => {
+  const handleDeleteCustomer = (customer: CustomerWithDetails) => {
     setItemToDelete(customer);
     setDeleteType("customer");
     setShowDeleteModal(true);

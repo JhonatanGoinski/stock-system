@@ -38,6 +38,19 @@ import {
 import type { Product, Customer } from "@/lib/prisma";
 import { formatCurrency } from "@/lib/utils";
 
+interface Company {
+  id: number;
+  name: string;
+  isActive: boolean;
+}
+
+interface ProductWithCompany extends Product {
+  company?: {
+    id: number;
+    name: string;
+  } | null;
+}
+
 interface ReportData {
   summary: {
     totalSales: number;
@@ -54,6 +67,7 @@ interface ReportData {
     time: string;
     product_name: string;
     product_category: string;
+    product_company: string | null;
     customer_name: string;
     customer_email: string | null;
     customer_phone: string | null;
@@ -80,6 +94,7 @@ interface ReportData {
   productStats: Array<{
     name: string;
     category: string;
+    company: string | null;
     totalSold: number;
     totalRevenue: number;
     salesCount: number;
@@ -89,19 +104,27 @@ interface ReportData {
 export function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<ProductWithCompany[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [filters, setFilters] = useState({
     startDate: "",
     endDate: "",
     customerId: "all",
     productId: "all",
+    companyId: "all",
   });
   const [visibleSales, setVisibleSales] = useState(5); // Mostrar 5 vendas por padrão
+  const [filteredProducts, setFilteredProducts] = useState<
+    ProductWithCompany[]
+  >([]);
+  const [visibleTopCustomers, setVisibleTopCustomers] = useState(6);
+  const [visibleTopProducts, setVisibleTopProducts] = useState(6);
 
   useEffect(() => {
     fetchProducts();
     fetchCustomers();
+    fetchCompanies();
     // Carregar relatório dos últimos 30 dias por padrão
     const today = new Date();
     const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
@@ -121,12 +144,30 @@ export function ReportsPage() {
   // Resetar paginação quando os filtros mudarem
   useEffect(() => {
     setVisibleSales(5);
+    setVisibleTopCustomers(6);
+    setVisibleTopProducts(6);
   }, [
     filters.startDate,
     filters.endDate,
     filters.customerId,
     filters.productId,
+    filters.companyId,
   ]);
+
+  // Filtrar produtos quando empresa mudar
+  useEffect(() => {
+    if (filters.companyId === "all") {
+      setFilteredProducts(products);
+    } else if (filters.companyId === "internal") {
+      setFilteredProducts(products.filter((p) => !p.company));
+    } else {
+      setFilteredProducts(
+        products.filter((p) => p.company?.id === Number(filters.companyId))
+      );
+    }
+    // Resetar produto selecionado quando empresa mudar
+    setFilters((prev) => ({ ...prev, productId: "all" }));
+  }, [filters.companyId, products]);
 
   const fetchProducts = async () => {
     try {
@@ -148,6 +189,16 @@ export function ReportsPage() {
     }
   };
 
+  const fetchCompanies = async () => {
+    try {
+      const response = await fetch("/api/companies?active=true");
+      const data = await response.json();
+      setCompanies(data);
+    } catch (error) {
+      console.error("Erro ao buscar empresas:", error);
+    }
+  };
+
   const generateReport = async () => {
     setIsLoading(true);
     try {
@@ -156,6 +207,7 @@ export function ReportsPage() {
         endDate: filters.endDate,
         customerId: filters.customerId,
         productId: filters.productId,
+        companyId: filters.companyId,
       });
 
       const response = await fetch(`/api/reports?${params}`);
@@ -186,6 +238,7 @@ export function ReportsPage() {
         endDate: filters.endDate,
         customerId: filters.customerId,
         productId: filters.productId,
+        companyId: filters.companyId,
         format: "csv",
       });
 
@@ -259,7 +312,7 @@ export function ReportsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             <div className="space-y-2">
               <Label htmlFor="startDate">Data Inicial</Label>
               <Input
@@ -322,9 +375,32 @@ export function ReportsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todos os produtos</SelectItem>
-                  {products.map((product) => (
+                  {filteredProducts.map((product) => (
                     <SelectItem key={product.id} value={product.id.toString()}>
                       {product.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="companyId">Empresa</Label>
+              <Select
+                value={filters.companyId}
+                onValueChange={(value) =>
+                  setFilters({ ...filters, companyId: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Todas as empresas" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas as empresas</SelectItem>
+                  <SelectItem value="internal">Produção Interna</SelectItem>
+                  {companies.map((company) => (
+                    <SelectItem key={company.id} value={company.id.toString()}>
+                      {company.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -415,9 +491,9 @@ export function ReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
+                <div className="space-y-3 max-h-80 overflow-y-auto">
                   {reportData.customerStats
-                    .slice(0, 5)
+                    .slice(0, visibleTopCustomers)
                     .map((customer, index) => (
                       <div
                         key={index}
@@ -450,6 +526,18 @@ export function ReportsPage() {
                     </p>
                   )}
                 </div>
+                {reportData.customerStats.length > visibleTopCustomers && (
+                  <div className="text-center pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setVisibleTopCustomers((prev) => prev + 6)}
+                    >
+                      Ver mais clientes
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -461,31 +549,46 @@ export function ReportsPage() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {reportData.productStats.slice(0, 5).map((product, index) => (
-                    <div
-                      key={index}
-                      className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium truncate">{product.name}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {product.category} • {product.totalSold} vendidos
-                        </p>
+                <div className="space-y-3 max-h-80 overflow-y-auto">
+                  {reportData.productStats
+                    .slice(0, visibleTopProducts)
+                    .map((product, index) => (
+                      <div
+                        key={index}
+                        className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{product.name}</p>
+                          <p className="text-sm text-muted-foreground">
+                            {product.category} • {product.company} •{" "}
+                            {product.totalSold} vendidos
+                          </p>
+                        </div>
+                        <div className="text-right ml-2">
+                          <p className="font-semibold">
+                            {formatCurrency(product.totalRevenue)}
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-right ml-2">
-                        <p className="font-semibold">
-                          {formatCurrency(product.totalRevenue)}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    ))}
                   {reportData.productStats.length === 0 && (
                     <p className="text-muted-foreground text-center py-4">
                       Nenhum produto no período
                     </p>
                   )}
                 </div>
+                {reportData.productStats.length > visibleTopProducts && (
+                  <div className="text-center pt-2 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => setVisibleTopProducts((prev) => prev + 6)}
+                    >
+                      Ver mais produtos
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -496,13 +599,14 @@ export function ReportsPage() {
               <CardTitle>Vendas Detalhadas</CardTitle>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
+              <div className="overflow-x-auto max-h-80 overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead>Data</TableHead>
                       <TableHead>Cliente</TableHead>
                       <TableHead>Produto</TableHead>
+                      <TableHead>Empresa</TableHead>
                       <TableHead>Qtd</TableHead>
                       <TableHead>Preço Unit.</TableHead>
                       <TableHead>Desconto</TableHead>
@@ -531,6 +635,11 @@ export function ReportsPage() {
                               {sale.product_category}
                             </Badge>
                           </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="text-sm text-muted-foreground">
+                            {sale.product_company}
+                          </span>
                         </TableCell>
                         <TableCell>{sale.quantity}</TableCell>
                         <TableCell>{formatCurrency(sale.unit_price)}</TableCell>

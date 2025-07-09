@@ -112,6 +112,12 @@ export async function GET(request: NextRequest) {
           select: {
             name: true,
             category: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         customer: {
@@ -121,7 +127,7 @@ export async function GET(request: NextRequest) {
           },
         },
       },
-      orderBy: { saleDate: "desc" },
+      orderBy: { createdAt: "desc" },
     });
 
     const formattedSales = sales.map((sale) => ({
@@ -138,6 +144,7 @@ export async function GET(request: NextRequest) {
       product: {
         name: sale.product.name,
         category: sale.product.category,
+        company: sale.product.company,
       },
       customer: sale.customer
         ? {
@@ -260,6 +267,26 @@ export async function POST(request: NextRequest) {
           notes: validatedData.notes || null,
           saleDate: saleDateToSave,
         },
+        include: {
+          product: {
+            select: {
+              name: true,
+              category: true,
+              company: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          },
+          customer: {
+            select: {
+              name: true,
+              email: true,
+            },
+          },
+        },
       });
 
       // Atualizar estoque
@@ -275,7 +302,38 @@ export async function POST(request: NextRequest) {
       return sale;
     });
 
-    return NextResponse.json(result, { status: 201 });
+    // Formatar a resposta para seguir o mesmo padrão do GET
+    const formattedSale = {
+      id: result.id,
+      productId: result.productId,
+      customerId: result.customerId,
+      quantity: result.quantity,
+      unitPrice: Number(result.unitPrice),
+      totalAmount: Number(result.totalAmount),
+      discount: Number(result.discount || 0),
+      notes: result.notes,
+      saleDate: result.saleDate,
+      createdAt: result.createdAt,
+      product: {
+        name: result.product.name,
+        category: result.product.category,
+        company: result.product.company,
+      },
+      customer: result.customer
+        ? {
+            name: result.customer.name,
+            email: result.customer.email,
+          }
+        : null,
+    };
+
+    console.log("✅ Venda criada e formatada:", formattedSale);
+    console.log("✅ Tipo da venda:", typeof formattedSale);
+    console.log(
+      "✅ Estrutura da venda:",
+      JSON.stringify(formattedSale, null, 2)
+    );
+    return NextResponse.json(formattedSale, { status: 201 });
   } catch (error) {
     console.error("Erro ao registrar venda:", error);
 

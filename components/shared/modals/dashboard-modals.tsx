@@ -6,7 +6,11 @@ import { SaleForm } from "@/components/sales/sale-form";
 import { CompanyForm } from "@/components/companies/company-form";
 import { ProductionHistory } from "@/components/products/production-history";
 import { CompaniesInactiveList } from "@/components/companies/companies-list";
-import type { Product, Customer, SaleWithDetails } from "@/lib/prisma";
+import type {
+  Product,
+  CustomerWithDetails,
+  SaleWithDetails,
+} from "@/lib/prisma";
 
 interface DashboardModalsProps {
   // Estados dos modais
@@ -19,7 +23,7 @@ interface DashboardModalsProps {
   showInactiveCompanies: boolean;
   selectedProductForHistory: { id: number; name: string } | null;
   editingProduct: Product | null;
-  editingCustomer: Customer | null;
+  editingCustomer: CustomerWithDetails | null;
   itemToDelete: any;
   deleteType: "product" | "customer" | "sale" | null;
   inactiveCompanies: any[];
@@ -38,9 +42,9 @@ interface DashboardModalsProps {
   onCloseInactiveCompanies: () => void;
 
   // Handlers para sucesso dos formulários
-  onProductFormSuccess: () => void;
-  onCustomerFormSuccess: () => void;
-  onSaleFormSuccess: () => void;
+  onProductFormSuccess: (newProduct?: Product) => void;
+  onCustomerFormSuccess: (newCustomer?: CustomerWithDetails) => void;
+  onSaleFormSuccess: (newSale?: SaleWithDetails) => void;
   onCompanyFormSuccess: () => void;
 
   // Handlers para deletar

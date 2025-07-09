@@ -15,12 +15,12 @@ import {
   CardTitle,
 } from "@/components/shared/ui/card";
 import { customerSchema, type CustomerInput } from "@/lib/validations";
-import type { Customer } from "@/lib/prisma";
+import type { CustomerWithDetails } from "@/lib/prisma";
 import { useToast } from "@/hooks/shared/use-toast";
 
 interface CustomerFormProps {
-  customer?: Customer;
-  onSuccess: () => void;
+  customer?: CustomerWithDetails;
+  onSuccess: (newCustomer?: CustomerWithDetails) => void;
   onCancel: () => void;
 }
 
@@ -76,6 +76,14 @@ export function CustomerForm({
         throw new Error("Erro ao salvar cliente");
       }
 
+      const newCustomer = await response.json();
+      console.log("✅ Cliente salvo, dados retornados:", newCustomer);
+      console.log("✅ Tipo dos dados:", typeof newCustomer);
+      console.log(
+        "✅ Estrutura dos dados:",
+        JSON.stringify(newCustomer, null, 2)
+      );
+
       toast({
         title: customer ? "Cliente atualizado!" : "Cliente cadastrado!",
         description: customer
@@ -83,7 +91,7 @@ export function CustomerForm({
           : "O cliente foi cadastrado com sucesso.",
         variant: "success",
       });
-      onSuccess();
+      onSuccess(newCustomer);
     } catch (error) {
       console.error("Erro:", error);
       toast({

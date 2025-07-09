@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const isBuildTime =
   process.env.NODE_ENV === "production" && !process.env.DATABASE_URL;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   console.log("🔍 GET /api/products - Buscando produtos");
 
   // Verificar autenticação
@@ -44,7 +44,22 @@ export async function GET() {
 
     console.log("✅ Prisma disponível, executando query...");
 
+    // Obter parâmetros de filtro
+    const { searchParams } = new URL(request.url);
+    const companyId = searchParams.get("company_id");
+
+    // Construir filtro de empresa
+    let whereClause: any = {};
+    if (companyId === "internal") {
+      // Produtos de produção interna (sem empresa)
+      whereClause.companyId = null;
+    } else if (companyId) {
+      // Produtos de uma empresa específica
+      whereClause.companyId = Number(companyId);
+    }
+
     const products = await prisma.product.findMany({
+      where: Object.keys(whereClause).length > 0 ? whereClause : undefined,
       orderBy: { createdAt: "desc" },
       include: {
         company: {

@@ -25,6 +25,7 @@ import {
   ChevronDown as ChevronDownIcon,
   ChevronUp,
   Trash2,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/hooks/shared/use-toast";
 import { getCurrentDateString } from "@/lib/utils";
@@ -568,6 +569,8 @@ function ProductsList({
   deletingProducts?: Set<number>;
   processingProducts?: Set<number>;
 }) {
+  const [visibleProducts, setVisibleProducts] = useState(5);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("pt-BR", {
       style: "currency",
@@ -575,195 +578,143 @@ function ProductsList({
     }).format(value);
   };
 
-  // Produtos filtrados (usando todos os produtos, não apenas os visíveis)
-  const filteredProducts = allProducts.filter(
-    (product) =>
-      product.name.toLowerCase().includes(productFilter.toLowerCase()) ||
-      product.category.toLowerCase().includes(productFilter.toLowerCase()) ||
-      (product.size &&
-        product.size.toLowerCase().includes(productFilter.toLowerCase()))
+  const filteredProducts = products.filter((product) =>
+    product.name.toLowerCase().includes(productFilter.toLowerCase())
   );
 
-  // Produtos visíveis após filtro
-  const visibleFilteredProducts = filteredProducts.slice(0, products.length);
+  const visibleFilteredProducts = filteredProducts.slice(0, visibleProducts);
 
-  if (products.length === 0) {
-    return (
-      <div className="text-center py-4 text-muted-foreground">
-        Nenhum produto cadastrado
-      </div>
-    );
-  }
+  const handleLoadMore = () => {
+    setVisibleProducts((prev) => prev + 5);
+  };
 
-  if (productFilter && filteredProducts.length === 0) {
-    return (
-      <div className="space-y-3">
-        {/* Filtro de produtos - sempre visível */}
-        <div className="mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-          <label className="text-sm font-medium">Filtrar produtos:</label>
-          <div className="flex gap-2 items-center">
-            <Input
-              type="text"
-              placeholder="Buscar por nome, categoria ou tamanho..."
-              value={productFilter}
-              onChange={(e) => onProductFilterChange(companyId, e.target.value)}
-              className="max-w-xs"
-            />
-            {productFilter && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onProductFilterChange(companyId, "")}
-                className="h-8 w-8 p-0"
-              >
-                <X className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="text-center py-4 text-muted-foreground">
-          Nenhum produto encontrado com o filtro "{productFilter}"
-        </div>
-      </div>
-    );
-  }
+  const handleFilterChange = (filter: string) => {
+    onProductFilterChange(companyId, filter);
+    setVisibleProducts(5); // Reset paginação quando filtrar
+  };
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Filtro de produtos */}
-      <div className="mb-4 flex flex-col sm:flex-row gap-2 items-start sm:items-center">
-        <label className="text-sm font-medium">Filtrar produtos:</label>
-        <div className="flex gap-2 items-center">
-          <Input
-            type="text"
-            placeholder="Buscar por nome, categoria ou tamanho..."
-            value={productFilter}
-            onChange={(e) => onProductFilterChange(companyId, e.target.value)}
-            className="max-w-xs"
-          />
-          {productFilter && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onProductFilterChange(companyId, "")}
-              className="h-8 w-8 p-0"
-            >
-              <X className="w-4 h-4" />
-            </Button>
-          )}
-        </div>
+      <div className="flex items-center space-x-2">
+        <Input
+          placeholder="Filtrar produtos..."
+          value={productFilter}
+          onChange={(e) => handleFilterChange(e.target.value)}
+          className="max-w-xs"
+        />
       </div>
 
-      {/* Container com scroll */}
-      <div
-        className={`space-y-3 ${
-          isScrollEnabled
-            ? "max-h-80 md:max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100 dark:scrollbar-thumb-gray-600 dark:scrollbar-track-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2"
-            : ""
-        }`}
-      >
-        {isScrollEnabled && (
-          <div className="text-xs text-muted-foreground text-center py-1 bg-gray-50 dark:bg-gray-800/50 rounded border-b dark:border-gray-700">
-            <span className="text-gray-600 dark:text-gray-400">
-              📜 Use a rolagem para ver mais produtos
-            </span>
-          </div>
-        )}
-        {visibleFilteredProducts.map((product) => (
-          <div key={product.id} className="border rounded-lg p-4">
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <h4 className="font-semibold">{product.name}</h4>
-                  <Badge variant="outline">{product.category}</Badge>
-                  {product.size && (
-                    <Badge variant="secondary">{product.size}</Badge>
-                  )}
+      {/* Lista de produtos com scroll */}
+      <div className="max-h-80 overflow-y-auto">
+        <div className="space-y-2">
+          {visibleFilteredProducts.map((product) => (
+            <div key={product.id} className="p-3 bg-muted/50 rounded-lg">
+              {/* Layout responsivo: mobile empilhado, desktop/tablet em linha, adaptando para telas médias */}
+              <div className="w-full sm:overflow-x-auto md:overflow-x-visible">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 sm:min-w-[700px] md:min-w-0">
+                  {/* Nome do produto */}
+                  <div className="flex items-center gap-2 min-w-[120px] flex-1 max-w-full min-w-0">
+                    <Package className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="font-medium truncate block max-w-[180px] md:max-w-[240px] lg:max-w-[320px]">
+                      {product.name}
+                    </span>
+                  </div>
+                  {/* Categoria e Tamanho sempre na mesma linha */}
+                  <div className="flex flex-row gap-2 flex-1 min-w-[120px] max-w-full min-w-0 sm:min-w-[180px] sm:max-w-[240px] md:max-w-full">
+                    <span className="text-xs text-muted-foreground truncate">
+                      Categoria: {product.category}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate">
+                      Tamanho: {product.size || "-"}
+                    </span>
+                  </div>
+                  {/* Estoque/Custo e Venda/Lucro responsivos: em md ou maior, tudo em linha; abaixo de md, pares lado a lado (w-1/2) */}
+                  <div className="flex flex-col md:flex-row gap-2 flex-1 w-full">
+                    <div className="flex flex-row gap-2 w-full">
+                      <div className="text-xs md:text-xs min-w-[70px] w-1/2">
+                        Estoque:{" "}
+                        <span className="font-semibold">
+                          {product.stockQuantity}
+                        </span>
+                      </div>
+                      <div className="text-xs md:text-xs min-w-[90px] w-1/2">
+                        Custo:{" "}
+                        <span className="font-semibold">
+                          {formatCurrency(Number(product.costPrice))}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex flex-row gap-2 w-full">
+                      <div className="text-xs md:text-xs min-w-[90px] w-1/2">
+                        Venda:{" "}
+                        <span className="font-semibold">
+                          {formatCurrency(Number(product.salePrice))}
+                        </span>
+                      </div>
+                      <div className="text-xs md:text-xs min-w-[80px] w-1/2">
+                        Lucro:{" "}
+                        <span className="font-semibold text-green-600">
+                          {(
+                            ((Number(product.salePrice) -
+                              Number(product.costPrice)) /
+                              Number(product.costPrice)) *
+                            100
+                          ).toFixed(1)}
+                          %
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-muted-foreground">
-                  <div>
-                    <span className="font-medium">Estoque:</span>{" "}
-                    {product.stockQuantity}
-                  </div>
-                  <div>
-                    <span className="font-medium">Custo:</span>{" "}
-                    {formatCurrency(product.costPrice)}
-                  </div>
-                  <div>
-                    <span className="font-medium">Venda:</span>{" "}
-                    {formatCurrency(product.salePrice)}
-                  </div>
-                  <div>
-                    <span className="font-medium">Margem:</span>{" "}
-                    {product.costPrice > 0
-                      ? `${(
-                          ((product.salePrice - product.costPrice) /
-                            product.costPrice) *
-                          100
-                        ).toFixed(1)}%`
-                      : "N/A"}
-                  </div>
-                </div>
+                {/* Fechar o bloco de informações principais */}
               </div>
-
+              <div className="mb-3" />
+              {/* Área de produção - só aparece no modo produção */}
               {isProductionMode && (
-                <div className={`flex gap-2 ml-4 flex-col md:flex-row`}>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onEditProduct(product)}
-                    disabled={isActionLoading}
-                  >
-                    {isActionLoading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                    ) : (
-                      "Editar"
-                    )}
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => onDeleteProduct(product.id)}
-                    disabled={
-                      isActionLoading || deletingProducts.has(product.id)
-                    }
-                  >
-                    {deletingProducts.has(product.id) ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    ) : (
-                      "Excluir"
-                    )}
-                  </Button>
-                </div>
-              )}
-            </div>
-
-            {/* Seção de Produção - apenas no modo produção */}
-            {isProductionMode && (
-              <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
-                <div className="flex items-center gap-2 mb-3">
-                  <Factory className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium">
-                    Adicionar Produção
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() =>
-                      onShowProductionHistory(product.id, product.name)
-                    }
-                    className="text-xs px-2 py-1 h-6 ml-auto"
-                  >
-                    <Calendar className="w-3 h-3 mr-1" />
-                    Histórico
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
+                <div className="border-t pt-2 flex flex-col gap-2 md:flex-row md:items-center md:gap-2">
+                  {/* Botões de ação */}
+                  <div className="flex flex-row gap-2 mb-2 md:mb-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEditProduct(product)}
+                      disabled={isActionLoading}
+                      className="w-full md:w-auto"
+                    >
+                      Editar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        onShowProductionHistory(product.id, product.name)
+                      }
+                      disabled={isActionLoading}
+                      className="w-full md:w-auto"
+                    >
+                      <Clock className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => onDeleteProduct(product.id)}
+                      disabled={
+                        deletingProducts.has(product.id) || isActionLoading
+                      }
+                      className="w-full md:w-auto"
+                    >
+                      {deletingProducts.has(product.id) ? (
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  {/* Mobile: Qtd e Data na mesma linha */}
+                  <div className="flex flex-row gap-2 md:hidden">
                     <Input
                       type="number"
-                      min="0"
                       placeholder="Qtd"
                       value={productionQuantities[product.id] || ""}
                       onChange={(e) =>
@@ -772,7 +723,8 @@ function ProductsList({
                           parseInt(e.target.value) || 0
                         )
                       }
-                      className="w-16 h-8 text-xs"
+                      className="w-1/2"
+                      min="1"
                     />
                     <Input
                       type="date"
@@ -782,100 +734,111 @@ function ProductsList({
                       onChange={(e) =>
                         onProductionDateChange(product.id, e.target.value)
                       }
-                      className="w-32 h-8 text-xs"
+                      className="w-1/2"
                     />
                   </div>
-                  <div className="flex items-center gap-2">
+                  {/* Mobile: Notas e Botão de adicionar na mesma linha */}
+                  <div className="flex flex-row gap-2 md:hidden">
                     <Input
-                      type="text"
-                      placeholder="Observações (opcional)"
+                      placeholder="Notas"
                       value={productionNotes[product.id] || ""}
                       onChange={(e) =>
                         onProductionNotesChange(product.id, e.target.value)
                       }
-                      className="flex-1 h-8 text-xs"
+                      className="w-1/2"
                     />
                     <Button
                       size="sm"
                       onClick={() => onAddProduction(product.id)}
                       disabled={
+                        processingProducts.has(product.id) ||
                         !productionQuantities[product.id] ||
-                        productionQuantities[product.id] <= 0 ||
-                        isActionLoading ||
-                        processingProducts.has(product.id)
+                        productionQuantities[product.id] <= 0
                       }
-                      className="text-xs px-3 py-1 h-8"
+                      variant="default"
+                      className="w-1/2 bg-green-600 hover:bg-green-700 text-white"
                     >
                       {processingProducts.has(product.id) ? (
-                        <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white mr-1"></div>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
                       ) : (
-                        <Plus className="w-3 h-3 mr-1" />
+                        <Plus className="h-4 w-4" />
                       )}
-                      Adicionar
                     </Button>
                   </div>
+                  {/* Desktop: campos em linha */}
+                  <Input
+                    type="number"
+                    placeholder="Qtd"
+                    value={productionQuantities[product.id] || ""}
+                    onChange={(e) =>
+                      onProductionQuantityChange(
+                        product.id,
+                        parseInt(e.target.value) || 0
+                      )
+                    }
+                    className="hidden md:block w-full md:w-24"
+                    min="1"
+                  />
+                  <Input
+                    type="date"
+                    value={
+                      productionDates[product.id] || getCurrentDateString()
+                    }
+                    onChange={(e) =>
+                      onProductionDateChange(product.id, e.target.value)
+                    }
+                    className="hidden md:block w-full md:w-40"
+                  />
+                  <Input
+                    placeholder="Notas"
+                    value={productionNotes[product.id] || ""}
+                    onChange={(e) =>
+                      onProductionNotesChange(product.id, e.target.value)
+                    }
+                    className="hidden md:block w-full md:w-32"
+                  />
+                  <Button
+                    size="sm"
+                    onClick={() => onAddProduction(product.id)}
+                    disabled={
+                      processingProducts.has(product.id) ||
+                      !productionQuantities[product.id] ||
+                      productionQuantities[product.id] <= 0
+                    }
+                    variant="default"
+                    className="hidden md:block w-full md:w-auto bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    {processingProducts.has(product.id) ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <Plus className="h-4 w-4" />
+                    )}
+                  </Button>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          ))}
+        </div>
       </div>
 
-      {/* Botões de paginação */}
-      {!productFilter && allProducts.length > 4 && (
-        <div className="flex flex-col items-center gap-2 mt-4">
-          {/* Informação sobre a paginação */}
-          <div className="text-sm text-muted-foreground">
-            <span className="text-gray-600 dark:text-gray-400">
-              {isScrollEnabled
-                ? `📜 ${products.length} produtos carregados (use a rolagem)`
-                : `Mostrando ${products.length} de ${allProducts.length} produtos`}
-            </span>
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex justify-center gap-2">
-            {/* Botão "Ver menos" - só aparece se tem mais de 4 produtos visíveis */}
-            {products.length > 4 && (
-              <Button
-                variant="outline"
-                onClick={onLoadLess}
-                disabled={isActionLoading}
-                className="flex items-center gap-2"
-              >
-                {isActionLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                ) : (
-                  <ChevronUp className="w-4 h-4" />
-                )}
-                {isScrollEnabled ? "Voltar para 4" : "Ver menos"}
-              </Button>
-            )}
-
-            {/* Botão "Ver mais" - só aparece se ainda há produtos para carregar */}
-            {allProducts.length > products.length && (
-              <Button
-                variant="outline"
-                onClick={onLoadMore}
-                disabled={isActionLoading}
-                className="flex items-center gap-2"
-              >
-                {isActionLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
-                ) : (
-                  <ChevronDownIcon className="w-4 h-4" />
-                )}
-                {isScrollEnabled
-                  ? `Carregar mais (${
-                      allProducts.length - products.length
-                    } restantes)`
-                  : `Ver mais produtos (${
-                      allProducts.length - products.length
-                    } restantes)`}
-              </Button>
-            )}
-          </div>
+      {/* Botão ver mais */}
+      {filteredProducts.length > visibleProducts && (
+        <div className="text-center pt-2 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            className="text-xs"
+            onClick={handleLoadMore}
+          >
+            Ver mais produtos
+          </Button>
         </div>
+      )}
+
+      {filteredProducts.length === 0 && (
+        <p className="text-muted-foreground text-center py-4">
+          Nenhum produto encontrado.
+        </p>
       )}
     </div>
   );

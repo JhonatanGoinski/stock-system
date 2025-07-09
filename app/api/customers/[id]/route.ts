@@ -169,9 +169,26 @@ export async function PUT(
         notes: validatedData.notes || null,
         isActive: validatedData.is_active,
       },
+      include: {
+        _count: {
+          select: { sales: true },
+        },
+      },
     });
 
-    return NextResponse.json(customer);
+    const formattedCustomer = {
+      ...customer,
+      salesCount: customer._count.sales,
+      _count: undefined,
+    };
+
+    console.log("✅ Cliente atualizado e formatado:", formattedCustomer);
+    console.log("✅ Tipo do cliente:", typeof formattedCustomer);
+    console.log(
+      "✅ Estrutura do cliente:",
+      JSON.stringify(formattedCustomer, null, 2)
+    );
+    return NextResponse.json(formattedCustomer);
   } catch (error) {
     console.error("Erro ao atualizar cliente:", error);
 

@@ -131,9 +131,26 @@ export async function POST(request: NextRequest) {
         notes: validatedData.notes || null,
         isActive: validatedData.is_active,
       },
+      include: {
+        _count: {
+          select: { sales: true },
+        },
+      },
     });
 
-    return NextResponse.json(customer, { status: 201 });
+    const formattedCustomer = {
+      ...customer,
+      salesCount: customer._count.sales,
+      _count: undefined,
+    };
+
+    console.log("✅ Cliente criado e formatado:", formattedCustomer);
+    console.log("✅ Tipo do cliente:", typeof formattedCustomer);
+    console.log(
+      "✅ Estrutura do cliente:",
+      JSON.stringify(formattedCustomer, null, 2)
+    );
+    return NextResponse.json(formattedCustomer, { status: 201 });
   } catch (error) {
     console.error("Erro ao criar cliente:", error);
 

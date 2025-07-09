@@ -1,20 +1,58 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/shared/use-toast";
-import type { Customer } from "@/lib/prisma";
+import { useDashboardContext } from "@/hooks/dashboard/use-dashboard-context";
+import type { CustomerWithDetails } from "@/lib/prisma";
 
 export function useCustomers() {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [localCustomers, setLocalCustomers] = useState<CustomerWithDetails[]>(
+    []
+  );
+  const [isCustomersLoading, setIsCustomersLoading] = useState(false);
+  const [deletingCustomers, setDeletingCustomers] = useState<Set<number>>(
+    new Set()
+  );
   const { toast } = useToast();
+  const {
+    customers: contextCustomers,
+    setCustomers: setContextCustomers,
+    addCustomer: addContextCustomer,
+    updateCustomer: updateContextCustomer,
+    removeCustomer: removeContextCustomer,
+    addCustomerListener,
+    removeCustomerListener,
+  } = useDashboardContext();
 
   const fetchCustomers = async () => {
     try {
-      const response = await fetch("/api/customers");
+      setIsCustomersLoading(true);
+      console.log("📡 Buscando clientes atualizados...");
+
+      const response = await fetch("/api/customers", {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
+        },
+      });
+
+      console.log(
+        "📡 Resposta da API clientes:",
+        response.status,
+        response.statusText
+      );
+
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data);
+        console.log("✅ Clientes recebidos:", data.length, "clientes");
+        setLocalCustomers(data);
+        setContextCustomers(data);
+      } else {
+        console.error("❌ Erro na resposta da API clientes:", response.status);
       }
     } catch (error) {
-      console.error("Erro ao buscar clientes:", error);
+      console.error("❌ Erro ao buscar clientes:", error);
+    } finally {
+      setIsCustomersLoading(false);
     }
   };
 
@@ -26,7 +64,8 @@ export function useCustomers() {
       const response = await fetch(`/api/customers?${params}`);
       if (response.ok) {
         const data = await response.json();
-        setCustomers(data);
+        setLocalCustomers(data);
+        setContextCustomers(data);
       }
     } catch (error) {
       console.error("Erro ao buscar clientes:", error);
@@ -34,6 +73,9 @@ export function useCustomers() {
   };
 
   const deleteCustomer = async (id: number) => {
+    // Adicionar cliente ao set de clientes sendo deletados
+    setDeletingCustomers((prev) => new Set(prev).add(id));
+
     try {
       const response = await fetch(`/api/customers/${id}`, {
         method: "DELETE",
@@ -45,6 +87,8 @@ export function useCustomers() {
           description: "O cliente foi removido com sucesso.",
           variant: "success",
         });
+        // Atualizar estado local removendo o cliente
+        removeContextCustomer(id);
         return true;
       } else {
         const errorData = await response.json();
@@ -62,17 +106,95 @@ export function useCustomers() {
         variant: "destructive",
       });
       return false;
+    } finally {
+      // Remover cliente do set de clientes sendo deletados
+      setDeletingCustomers((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(id);
+        return newSet;
+      });
     }
+  };
+
+  // Listener para atualizações do contexto
+  const customerListener = useCallback(
+    (updatedCustomers: CustomerWithDetails[]) => {
+      console.log(
+        "🔄 Hook useCustomers: Recebendo atualização de clientes:",
+        updatedCustomers.length
+      );
+      setLocalCustomers(updatedCustomers);
+    },
+    []
+  );
+
+  useEffect(() => {
+    // Registrar listener
+    addCustomerListener(customerListener);
+
+    // Cleanup
+    return () => {
+      removeCustomerListener(customerListener);
+    };
+  }, [addCustomerListener, removeCustomerListener, customerListener]);
+
+  // Sincronizar clientes locais com o contexto quando o contexto mudar
+  useEffect(() => {
+    if (contextCustomers.length > 0) {
+      console.log(
+        "🔄 Sincronizando clientes locais com contexto:",
+        contextCustomers.length
+      );
+      setLocalCustomers(contextCustomers);
+    }
+  }, [contextCustomers]);
+
+  // Usar clientes locais como fonte principal
+  const customers = localCustomers;
+
+  const addCustomer = (newCustomer: CustomerWithDetails) => {
+    console.log("🔄 Hook useCustomers: Adicionando cliente:", newCustomer);
+    console.log("🔄 Tipo do cliente:", typeof newCustomer);
+    console.log(
+      "🔄 Estrutura do cliente:",
+      JSON.stringify(newCustomer, null, 2)
+    );
+    addContextCustomer(newCustomer);
+  };
+
+  const updateCustomer = (updatedCustomer: CustomerWithDetails) => {
+    console.log("�� Hook useCustomers: Atualizando cliente:", updatedCustomer);
+    console.log("🔄 Tipo do cliente:", typeof updatedCustomer);
+    console.log(
+      "🔄 Estrutura do cliente:",
+      JSON.stringify(updatedCustomer, null, 2)
+    );
+    updateContextCustomer(updatedCustomer);
+    // Também atualizar localmente para resposta imediata
+    setLocalCustomers((prev) =>
+      prev.map((customer) =>
+        customer.id === updatedCustomer.id ? updatedCustomer : customer
+      )
+    );
+  };
+
+  const refreshCustomers = () => {
+    fetchCustomers();
   };
 
   useEffect(() => {
     fetchCustomers();
-  }, []);
+  }, []); // Carregar apenas uma vez
 
   return {
     customers,
+    isCustomersLoading,
+    deletingCustomers,
     fetchCustomers,
     fetchCustomersWithFilter,
     deleteCustomer,
+    addCustomer,
+    updateCustomer,
+    refreshCustomers,
   };
 }

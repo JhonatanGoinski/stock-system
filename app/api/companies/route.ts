@@ -7,15 +7,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
 
     // Filtros
+    const activeParam = searchParams.get("active");
     const isActiveParam = searchParams.get("isActive");
     const nameParam = searchParams.get("name");
     const page = parseInt(searchParams.get("page") || "1", 10);
     const pageSize = parseInt(searchParams.get("pageSize") || "100", 10);
 
     const where: any = {};
-    if (isActiveParam !== null) {
+
+    // Suportar tanto "active" quanto "isActive" para compatibilidade
+    if (activeParam !== null) {
+      where.isActive = activeParam === "true";
+    } else if (isActiveParam !== null) {
       where.isActive = isActiveParam === "true";
     }
+
     if (nameParam) {
       where.name = { contains: nameParam, mode: "insensitive" };
     }

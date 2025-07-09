@@ -22,19 +22,30 @@ import {
 } from "@/components/shared/ui/card";
 import { saleSchema, type SaleInput } from "@/lib/validations";
 import { formatCurrency } from "@/lib/utils";
-import type { Product, Customer } from "@/lib/prisma";
+import type { Product, Customer, SaleWithDetails } from "@/lib/prisma";
 import { useToast } from "@/hooks/shared/use-toast";
+import { Building2, Factory } from "lucide-react";
 
 interface SaleFormProps {
-  onSuccess: () => void;
+  onSuccess: (newSale?: SaleWithDetails) => void;
   onCancel: () => void;
+}
+
+interface Company {
+  id: number;
+  name: string;
+  isActive: boolean;
 }
 
 export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedCompanyId, setSelectedCompanyId] = useState<number | null>(
+    null
+  );
   const { toast } = useToast();
 
   const {
@@ -59,9 +70,15 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
   const discount = watch("discount") || 0;
 
   useEffect(() => {
-    fetchProducts();
+    fetchCompanies();
     fetchCustomers();
   }, []);
+
+  useEffect(() => {
+    if (selectedCompanyId !== null) {
+      fetchProductsByCompany(selectedCompanyId);
+    }
+  }, [selectedCompanyId]);
 
   useEffect(() => {
     if (selectedProductId) {
@@ -73,11 +90,30 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
     }
   }, [selectedProductId, products, setValue]);
 
-  const fetchProducts = async () => {
+  const fetchCompanies = async () => {
     try {
-      const response = await fetch("/api/products");
+      const response = await fetch("/api/companies?active=true");
+      const data = await response.json();
+      setCompanies(data);
+      // Definir produção interna como padrão
+      setSelectedCompanyId(null);
+    } catch (error) {
+      console.error("Erro ao buscar empresas:", error);
+    }
+  };
+
+  const fetchProductsByCompany = async (companyId: number | null) => {
+    try {
+      const url = companyId
+        ? `/api/products?company_id=${companyId}`
+        : "/api/products?company_id=internal";
+      const response = await fetch(url);
       const data = await response.json();
       setProducts(data.filter((p: Product) => p.stockQuantity > 0));
+      // Limpar produto selecionado quando mudar empresa
+      setSelectedProduct(null);
+      setValue("product_id", undefined as any);
+      setValue("unit_price", 0);
     } catch (error) {
       console.error("Erro ao buscar produtos:", error);
     }
@@ -107,12 +143,17 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
         throw new Error(error.error || "Erro ao registrar venda");
       }
 
+      const newSale = await response.json();
+      console.log("✅ Venda criada, dados retornados:", newSale);
+      console.log("✅ Tipo dos dados:", typeof newSale);
+      console.log("✅ Estrutura dos dados:", JSON.stringify(newSale, null, 2));
+
       toast({
         title: "Venda registrada!",
         description: "A venda foi registrada com sucesso.",
         variant: "success",
       });
-      onSuccess();
+      onSuccess(newSale);
     } catch (error) {
       console.error("Erro:", error);
       toast({
@@ -136,6 +177,29 @@ export function SaleForm({ onSuccess, onCancel }: SaleFormProps) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          {/* Empresa */}
+          <div className="space-y-2">
+            <Label htmlFor="company_id">Empresa</Label>
+            <Select
+              value={selectedCompanyId?.toString() || "0"}
+              onValueChange={(value) =>
+                setSelectedCompanyId(value ? Number.parseInt(value) : null)
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione uma empresa (opcional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="0">Produção Interna</SelectItem>
+                {companies.map((company) => (
+                  <SelectItem key={company.id} value={company.id.toString()}>
+                    {company.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Cliente */}
           <div className="space-y-2">
             <Label htmlFor="customer_id">Cliente</Label>

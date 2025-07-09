@@ -31,6 +31,7 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
+import { Button } from "@/components/shared/ui/button";
 
 interface DashboardData {
   todayRevenue: number;
@@ -39,6 +40,7 @@ interface DashboardData {
   topProducts: Array<{
     name: string;
     category: string;
+    company: string | null;
     total_sold: number;
     revenue: number;
   }>;
@@ -51,6 +53,7 @@ interface DashboardData {
   lowStockProducts: Array<{
     name: string;
     category: string;
+    company: string | null;
     stockQuantity: number;
   }>;
   dailySales: Array<{
@@ -65,10 +68,22 @@ const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8"];
 export function DashboardStats() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [visibleProducts, setVisibleProducts] = useState(6);
+  const [visibleCustomers, setVisibleCustomers] = useState(6);
+  const [visibleLowStock, setVisibleLowStock] = useState(6);
 
   useEffect(() => {
     fetchDashboardData();
   }, []);
+
+  // Resetar paginação quando os dados mudarem
+  useEffect(() => {
+    if (data) {
+      setVisibleProducts(6);
+      setVisibleCustomers(6);
+      setVisibleLowStock(6);
+    }
+  }, [data]);
 
   const fetchDashboardData = async () => {
     try {
@@ -389,31 +404,47 @@ export function DashboardStats() {
             <CardTitle>Top Produtos</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {(data.topProducts || []).slice(0, 5).map((product, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {product.category} • {product.total_sold} vendidos
-                    </p>
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {(data.topProducts || [])
+                .slice(0, visibleProducts)
+                .map((product, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {product.category} •{" "}
+                        {product.company || "Produção Interna"} •{" "}
+                        {product.total_sold} vendidos
+                      </p>
+                    </div>
+                    <div className="text-right ml-2">
+                      <p className="font-semibold">
+                        {formatCurrency(product.revenue)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right ml-2">
-                    <p className="font-semibold">
-                      {formatCurrency(product.revenue)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
               {(data.topProducts || []).length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Nenhuma venda nos últimos 30 dias
                 </p>
               )}
             </div>
+            {(data.topProducts || []).length > visibleProducts && (
+              <div className="text-center pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setVisibleProducts((prev) => prev + 6)}
+                >
+                  Ver mais produtos
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -423,36 +454,50 @@ export function DashboardStats() {
             <CardTitle>Top Clientes</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {(data.topCustomers || []).slice(0, 5).map((customer, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{customer.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {customer.total_items} itens comprados
-                    </p>
-                    {customer.email && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {customer.email}
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {(data.topCustomers || [])
+                .slice(0, visibleCustomers)
+                .map((customer, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{customer.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {customer.total_items} itens comprados
                       </p>
-                    )}
+                      {customer.email && (
+                        <p className="text-xs text-muted-foreground truncate">
+                          {customer.email}
+                        </p>
+                      )}
+                    </div>
+                    <div className="text-right ml-2">
+                      <p className="font-semibold">
+                        {formatCurrency(customer.total_spent)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="text-right ml-2">
-                    <p className="font-semibold">
-                      {formatCurrency(customer.total_spent)}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                ))}
               {(data.topCustomers || []).length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Nenhuma venda com cliente nos últimos 30 dias
                 </p>
               )}
             </div>
+            {(data.topCustomers || []).length > visibleCustomers && (
+              <div className="text-center pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setVisibleCustomers((prev) => prev + 6)}
+                >
+                  Ver mais clientes
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -462,33 +507,49 @@ export function DashboardStats() {
             <CardTitle>Estoque Baixo</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {(data.lowStockProducts || []).map((product, index) => (
-                <div
-                  key={index}
-                  className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">{product.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {product.category} • {product.stockQuantity} em estoque
-                    </p>
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {(data.lowStockProducts || [])
+                .slice(0, visibleLowStock)
+                .map((product, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-destructive/10 rounded-lg"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">{product.name}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {product.category} •{" "}
+                        {product.company || "Produção Interna"} •{" "}
+                        {product.stockQuantity} em estoque
+                      </p>
+                    </div>
+                    <div className="text-right ml-2">
+                      <Badge variant="destructive">
+                        {product.stockQuantity === 0
+                          ? "Sem estoque"
+                          : "Estoque baixo"}
+                      </Badge>
+                    </div>
                   </div>
-                  <div className="text-right ml-2">
-                    <Badge variant="destructive">
-                      {product.stockQuantity === 0
-                        ? "Sem estoque"
-                        : "Estoque baixo"}
-                    </Badge>
-                  </div>
-                </div>
-              ))}
+                ))}
               {(data.lowStockProducts || []).length === 0 && (
                 <p className="text-muted-foreground text-center py-4">
                   Todos os produtos com estoque adequado
                 </p>
               )}
             </div>
+            {(data.lowStockProducts || []).length > visibleLowStock && (
+              <div className="text-center pt-2 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                  onClick={() => setVisibleLowStock((prev) => prev + 6)}
+                >
+                  Ver mais produtos
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

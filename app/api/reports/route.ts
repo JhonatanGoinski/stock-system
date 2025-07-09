@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get("endDate");
     const customerId = searchParams.get("customerId");
     const productId = searchParams.get("productId");
+    const companyId = searchParams.get("companyId");
     const format = searchParams.get("format");
 
     if (!startDate || !endDate) {
@@ -99,6 +100,12 @@ export async function GET(request: NextRequest) {
             name: true,
             category: true,
             costPrice: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
           },
         },
         customer: {
@@ -114,19 +121,36 @@ export async function GET(request: NextRequest) {
       orderBy: { saleDate: "desc" },
     });
 
+    // Filtrar por empresa se especificado
+    let filteredSales = sales;
+    if (companyId && companyId !== "all") {
+      if (companyId === "internal") {
+        // Produtos de produção interna (sem empresa)
+        filteredSales = sales.filter((sale) => !sale.product.company);
+      } else {
+        // Produtos de uma empresa específica
+        filteredSales = sales.filter(
+          (sale) => sale.product.company?.id === Number(companyId)
+        );
+      }
+    }
+
     // Calcular resumo
-    const totalSales = sales.length;
-    const totalRevenue = sales.reduce(
+    const totalSales = filteredSales.length;
+    const totalRevenue = filteredSales.reduce(
       (sum, sale) => sum + Number(sale.totalAmount),
       0
     );
-    const totalCost = sales.reduce(
+    const totalCost = filteredSales.reduce(
       (sum, sale) => sum + Number(sale.product.costPrice) * sale.quantity,
       0
     );
     const totalProfit = totalRevenue - totalCost;
-    const totalItems = sales.reduce((sum, sale) => sum + sale.quantity, 0);
-    const totalDiscount = sales.reduce(
+    const totalItems = filteredSales.reduce(
+      (sum, sale) => sum + sale.quantity,
+      0
+    );
+    const totalDiscount = filteredSales.reduce(
       (sum, sale) => sum + Number(sale.discount || 0),
       0
     );
@@ -193,11 +217,21 @@ export async function GET(request: NextRequest) {
       productStats.map(async (stat) => {
         const product = await prisma.product.findUnique({
           where: { id: stat.productId },
-          select: { name: true, category: true },
+          select: {
+            name: true,
+            category: true,
+            company: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+          },
         });
         return {
           name: product?.name || "Produto não encontrado",
           category: product?.category || "",
+          company: product?.company?.name || "Produção Interna",
           totalSold: stat._sum.quantity || 0,
           totalRevenue: Number(stat._sum.totalAmount || 0),
           salesCount: stat._count.id,
@@ -205,12 +239,13 @@ export async function GET(request: NextRequest) {
       })
     );
 
-    const formattedSales = sales.map((sale) => ({
+    const formattedSales = filteredSales.map((sale) => ({
       id: sale.id,
       date: sale.saleDate.toLocaleDateString("pt-BR"),
       time: sale.saleDate.toLocaleTimeString("pt-BR"),
       product_name: sale.product.name,
       product_category: sale.product.category,
+      product_company: sale.product.company?.name || "Produção Interna",
       customer_name: sale.customer?.name || "Venda Balcão",
       customer_email: sale.customer?.email || null,
       customer_phone: sale.customer?.phone || null,
@@ -254,6 +289,7 @@ export async function GET(request: NextRequest) {
         "Hora",
         "Produto",
         "Categoria",
+        "Empresa",
         "Cliente",
         "Email",
         "Telefone",
@@ -274,6 +310,7 @@ export async function GET(request: NextRequest) {
         sale.time,
         sale.product_name,
         sale.product_category,
+        sale.product_company,
         sale.customer_name,
         sale.customer_email || "",
         sale.customer_phone || "",
