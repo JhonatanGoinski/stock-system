@@ -28,6 +28,9 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { Dialog, DialogContent } from "@/components/shared/ui/dialog";
+import { ProfileEditModal } from "@/components/shared/modals/profile-edit-modal";
+import { SettingsModal } from "@/components/shared/modals/settings-modal";
+import { ConfirmDialog } from "@/components/shared/ui/confirm-dialog";
 
 export function Header() {
   const { data: session } = useSession();
@@ -37,6 +40,15 @@ export function Header() {
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
   const [lowStockCompanies, setLowStockCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Função para forçar atualização do header quando o perfil for modificado
+  const handleProfileUpdated = () => {
+    // Forçar re-render do componente para mostrar as mudanças
+    window.location.reload();
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -96,6 +108,10 @@ export function Header() {
   if (!session) return null;
 
   const handleSignOut = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmSignOut = () => {
     signOut({ callbackUrl: "/" });
   };
 
@@ -275,11 +291,11 @@ export function Header() {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowProfileModal(true)}>
                 <User className="mr-2 h-4 w-4" />
                 <span>Meu Perfil</span>
               </DropdownMenuItem>
-              <DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSettingsModal(true)}>
                 <Settings className="mr-2 h-4 w-4" />
                 <span>Configurações</span>
               </DropdownMenuItem>
@@ -295,6 +311,31 @@ export function Header() {
           </DropdownMenu>
         </div>
       </div>
+
+      {/* Modal de Edição de Perfil */}
+      <ProfileEditModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onProfileUpdated={handleProfileUpdated}
+      />
+
+      {/* Modal de Configurações */}
+      <SettingsModal
+        open={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
+
+      {/* Confirmação de Logout */}
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        title="Confirmar Saída"
+        description="Tem certeza que deseja sair do sistema? Você será desconectado e redirecionado para a página de login."
+        confirmText="Sair"
+        cancelText="Cancelar"
+        variant="destructive"
+        onConfirm={confirmSignOut}
+      />
     </header>
   );
 }

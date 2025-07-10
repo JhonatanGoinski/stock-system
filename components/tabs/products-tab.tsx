@@ -16,6 +16,7 @@ interface ProductsTabProps {
   onDeleteProduct: (productId: number) => void;
   onShowProductionHistory: (productId: number, productName: string) => void;
   onShowInactiveCompanies: () => void;
+  onEditCompany: (company: any) => void;
   showProductionHistory: boolean;
   selectedProductForHistory: { id: number; name: string } | null;
   onCloseProductionHistory: () => void;
@@ -29,6 +30,7 @@ export function ProductsTab({
   onDeleteProduct,
   onShowProductionHistory,
   onShowInactiveCompanies,
+  onEditCompany,
   showProductionHistory,
   selectedProductForHistory,
   onCloseProductionHistory,
@@ -151,6 +153,7 @@ export function ProductsTab({
         onShowProductionHistory={onShowProductionHistory}
         onToggleCompanyStatus={handleToggleCompanyStatusWithRefresh}
         onDeleteCompany={handleDeleteCompanyWithRefresh}
+        onEditCompany={onEditCompany}
         productionQuantities={productionQuantities}
         productionDates={productionDates}
         productionNotes={productionNotes}
@@ -162,6 +165,7 @@ export function ProductsTab({
         isActionLoading={isActionLoading}
         products={products}
         companies={companies}
+        onRefresh={fetchProducts}
       />
 
       {/* Modal de Histórico de Produção */}

@@ -24,6 +24,7 @@ interface DashboardModalsProps {
   selectedProductForHistory: { id: number; name: string } | null;
   editingProduct: Product | null;
   editingCustomer: CustomerWithDetails | null;
+  editingCompany: any;
   itemToDelete: any;
   deleteType: "product" | "customer" | "sale" | null;
   inactiveCompanies: any[];
@@ -45,7 +46,7 @@ interface DashboardModalsProps {
   onProductFormSuccess: (newProduct?: Product) => void;
   onCustomerFormSuccess: (newCustomer?: CustomerWithDetails) => void;
   onSaleFormSuccess: (newSale?: SaleWithDetails) => void;
-  onCompanyFormSuccess: () => void;
+  onCompanyFormSuccess: (updatedCompany?: any) => void;
 
   // Handlers para deletar
   onDeleteProduct: (id: number) => Promise<void>;
@@ -71,6 +72,7 @@ export function DashboardModals({
   selectedProductForHistory,
   editingProduct,
   editingCustomer,
+  editingCompany,
   itemToDelete,
   deleteType,
   inactiveCompanies,
@@ -186,7 +188,10 @@ export function DashboardModals({
         >
           {showCompanyForm && (
             <CompanyForm
-              onSuccess={onCompanyFormSuccess}
+              company={editingCompany || undefined}
+              onSuccess={(updatedCompany) =>
+                onCompanyFormSuccess(updatedCompany)
+              }
               onCancel={onCloseCompanyForm}
             />
           )}

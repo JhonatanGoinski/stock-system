@@ -135,6 +135,13 @@ export async function PUT(
         zipCode: body.zipCode?.trim() || null,
         isActive: body.isActive !== undefined ? body.isActive : true,
       },
+      include: {
+        _count: {
+          select: {
+            products: true,
+          },
+        },
+      },
     });
 
     console.log("✅ Empresa atualizada:", company.name);

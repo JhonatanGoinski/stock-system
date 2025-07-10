@@ -1,11 +1,30 @@
 "use client";
 
-import { Package, AlertCircle } from "lucide-react";
+import {
+  Package,
+  AlertCircle,
+  Building2,
+  User,
+  Settings,
+  LogOut,
+} from "lucide-react";
 import { ThemeToggle } from "@/components/shared/theme-toggle";
 import { MobileNav } from "@/components/shared/mobile-nav";
 import { Dialog, DialogContent } from "@/components/shared/ui/dialog";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/ui/button";
+import { useSession, signOut } from "next-auth/react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/shared/ui/dropdown-menu";
+import { ProfileEditModal } from "@/components/shared/modals/profile-edit-modal";
+import { SettingsModal } from "@/components/shared/modals/settings-modal";
+import { ConfirmDialog } from "@/components/shared/ui/confirm-dialog";
 
 interface MobileHeaderProps {
   activeTab: string;
@@ -13,10 +32,20 @@ interface MobileHeaderProps {
 }
 
 export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
+  const { data: session } = useSession();
   const [showLowStockDialog, setShowLowStockDialog] = useState(false);
   const [lowStockProducts, setLowStockProducts] = useState<any[]>([]);
   const [lowStockCompanies, setLowStockCompanies] = useState<any[]>([]);
   const [selectedCompany, setSelectedCompany] = useState<any>(null);
+  const [showProfileModal, setShowProfileModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  // Função para forçar atualização do header quando o perfil for modificado
+  const handleProfileUpdated = () => {
+    // Forçar re-render do componente para mostrar as mudanças
+    window.location.reload();
+  };
 
   useEffect(() => {
     // Polling para estoque baixo
@@ -54,6 +83,14 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
 
   const handleBackToCompanies = () => {
     setSelectedCompany(null);
+  };
+
+  const handleSignOut = () => {
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmSignOut = () => {
+    signOut({ callbackUrl: "/" });
   };
 
   return (
@@ -102,86 +139,83 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
               </span>
             )}
           </button>
-          <Dialog
-            open={showLowStockDialog}
-            onOpenChange={setShowLowStockDialog}
-          >
-            <DialogContent>
-              <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
-                <AlertCircle className="h-5 w-5 text-yellow-500" />
-                {selectedCompany
-                  ? `${selectedCompany.name} - Produtos com Estoque Baixo`
-                  : "Empresas com Estoque Baixo"}
-              </h2>
-              {lowStockCompanies.length === 0 ? (
-                <p className="text-muted-foreground">
-                  Nenhuma empresa com estoque baixo.
-                </p>
-              ) : selectedCompany ? (
-                <div className="max-h-60 overflow-y-auto">
-                  <div className="mb-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleBackToCompanies}
-                      className="mb-3"
-                    >
-                      ← Voltar para empresas
-                    </Button>
-                  </div>
-                  <div className="space-y-2">
-                    {selectedCompany.products.map(
-                      (product: any, prodIdx: number) => (
-                        <div
-                          key={prodIdx}
-                          className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded"
-                        >
-                          <div>
-                            <p className="font-medium">{product.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {product.category} • {product.stockQuantity} em
-                              estoque
-                            </p>
-                          </div>
-                          <span
-                            className={`text-xs ${
-                              product.stockQuantity === 0
-                                ? "bg-red-500 text-white"
-                                : "bg-yellow-500 text-white"
-                            } rounded-full px-2 py-0.5 ml-2 font-semibold`}
-                          >
-                            {product.stockQuantity === 0
-                              ? "Sem estoque"
-                              : "Estoque baixo"}
-                          </span>
-                        </div>
-                      )
-                    )}
-                  </div>
+
+          {/* Ícone da empresa - agora dois à esquerda do ThemeToggle, com borda igual */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="md:hidden h-9 w-9"
+              >
+                <Building2 className="h-6 w-6" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-56" align="end" forceMount>
+              <DropdownMenuLabel className="font-normal">
+                <div className="flex flex-col space-y-1">
+                  <p className="text-sm font-medium leading-none">
+                    {session?.user?.name}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {session?.user?.email}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground capitalize">
+                    {(session?.user as any)?.role}
+                  </p>
+                  <p className="text-xs leading-none text-muted-foreground">
+                    {(session?.user as any)?.company}
+                  </p>
                 </div>
-              ) : (
-                <div className="max-h-60 overflow-y-auto">
-                  {lowStockCompanies.map((company, idx) => (
-                    <div
-                      key={idx}
-                      className="mb-4 border-b last:border-0 pb-4 cursor-pointer hover:bg-muted/50 p-2 rounded"
-                      onClick={() => handleCompanyClick(company)}
-                    >
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold">{company.name}</h3>
-                        <span className="text-xs bg-yellow-500 text-white rounded-full px-2 py-0.5 ml-2">
-                          {company.count} produtos
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </DialogContent>
-          </Dialog>
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => setShowProfileModal(true)}>
+                <User className="mr-2 h-4 w-4" />
+                <span>Meu Perfil</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setShowSettingsModal(true)}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Configurações</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleSignOut}
+                className="text-red-600"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sair</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <ThemeToggle />
         </div>
       </div>
+
+      {/* Modal de Edição de Perfil */}
+      <ProfileEditModal
+        open={showProfileModal}
+        onClose={() => setShowProfileModal(false)}
+        onProfileUpdated={handleProfileUpdated}
+      />
+
+      {/* Modal de Configurações */}
+      <SettingsModal
+        open={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
+      />
+
+      {/* Confirmação de Logout */}
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        onOpenChange={setShowLogoutConfirm}
+        title="Confirmar Saída"
+        description="Tem certeza que deseja sair do sistema? Você será desconectado e redirecionado para a página de login."
+        confirmText="Sair"
+        cancelText="Cancelar"
+        variant="destructive"
+        onConfirm={confirmSignOut}
+      />
     </header>
   );
 }

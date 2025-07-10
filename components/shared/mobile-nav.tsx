@@ -14,6 +14,7 @@ import {
   BarChart3,
   FileText,
   LogOut,
+  Users,
 } from "lucide-react";
 import { signOut } from "next-auth/react";
 
@@ -28,6 +29,7 @@ export function MobileNav({ activeTab, onTabChange }: MobileNavProps) {
   const navItems = [
     { id: "dashboard", label: "Dashboard", icon: BarChart3 },
     { id: "products", label: "Produtos", icon: Package },
+    { id: "customers", label: "Clientes", icon: Users },
     { id: "sales", label: "Vendas", icon: ShoppingCart },
     { id: "reports", label: "Relatórios", icon: FileText },
   ];

@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/shared/use-toast";
+import { useDashboardContext } from "@/hooks/dashboard/use-dashboard-context";
 
 export function useCompanies() {
-  const [companies, setCompanies] = useState<any[]>([]);
+  const [localCompanies, setLocalCompanies] = useState<any[]>([]);
   const [inactiveCompanies, setInactiveCompanies] = useState<any[]>([]);
   const [inactiveCompaniesFilter, setInactiveCompaniesFilter] = useState("");
   const [inactiveCompaniesPage, setInactiveCompaniesPage] = useState(1);
@@ -10,7 +11,16 @@ export function useCompanies() {
     useState(false);
   const INACTIVE_COMPANIES_PAGE_SIZE = 5;
   const { toast } = useToast();
-  // Removido triggerSoftRefresh para evitar loops
+
+  const {
+    companies: contextCompanies,
+    setCompanies: setContextCompanies,
+    addCompany: addContextCompany,
+    updateCompany: updateContextCompany,
+    removeCompany: removeContextCompany,
+    addCompanyListener,
+    removeCompanyListener,
+  } = useDashboardContext();
 
   const fetchInactiveCompanies = async (filter = "", page = 1) => {
     setInactiveCompaniesLoading(true);
@@ -184,36 +194,86 @@ export function useCompanies() {
     }
   };
 
-  const updateCompany = (updatedCompany: any) => {
-    console.log("🔄 Atualizando empresa no hook:", updatedCompany);
-    setCompanies((prev) => {
-      const newCompanies = prev.map((company) =>
-        company.id === updatedCompany.id ? updatedCompany : company
+  // Listener para atualizações do contexto
+  const companyListener = useCallback((updatedCompanies: any[]) => {
+    console.log(
+      "🔄 Hook useCompanies: Recebendo atualização de empresas:",
+      updatedCompanies.length
+    );
+    setLocalCompanies(updatedCompanies);
+  }, []);
+
+  useEffect(() => {
+    // Registrar listener
+    addCompanyListener(companyListener);
+
+    // Cleanup
+    return () => {
+      removeCompanyListener(companyListener);
+    };
+  }, [addCompanyListener, removeCompanyListener, companyListener]);
+
+  // Sincronizar empresas locais com o contexto quando o contexto mudar
+  useEffect(() => {
+    console.log(
+      "🔄 Hook useCompanies: Contexto mudou - empresas:",
+      contextCompanies.length
+    );
+    if (contextCompanies.length > 0) {
+      console.log(
+        "🔄 Sincronizando empresas locais com contexto:",
+        contextCompanies.length
       );
-      console.log("🔄 Empresas atualizadas:", newCompanies.length);
-      return newCompanies;
-    });
+      setLocalCompanies(contextCompanies);
+    }
+  }, [contextCompanies]);
+
+  // Usar empresas locais como fonte principal
+  const companies = localCompanies;
+
+  const updateCompany = (updatedCompany: any) => {
+    console.log("🔄 Hook useCompanies: Atualizando empresa:", updatedCompany);
+    updateContextCompany(updatedCompany);
+    // Também atualizar localmente para resposta imediata
+    setLocalCompanies((prev) =>
+      prev.map((company) =>
+        company.id === updatedCompany.id ? updatedCompany : company
+      )
+    );
   };
 
   const removeCompany = (companyId: number) => {
-    console.log("🔄 Removendo empresa no hook:", companyId);
-    setCompanies((prev) => {
-      const newCompanies = prev.filter((company) => company.id !== companyId);
-      console.log("🔄 Empresas após remoção:", newCompanies.length);
-      return newCompanies;
-    });
+    console.log("🔄 Hook useCompanies: Removendo empresa:", companyId);
+    removeContextCompany(companyId);
+    // Também atualizar localmente para resposta imediata
+    setLocalCompanies((prev) =>
+      prev.filter((company) => company.id !== companyId)
+    );
   };
 
   const addCompany = (newCompany: any) => {
-    setCompanies((prev) => [...prev, newCompany]);
+    console.log("🔄 Hook useCompanies: Adicionando empresa:", newCompany);
+    addContextCompany(newCompany);
+    // Também atualizar localmente para resposta imediata
+    setLocalCompanies((prev) => [...prev, newCompany]);
   };
 
   const fetchCompanies = async () => {
     try {
+      console.log("🔄 Hook useCompanies: Buscando empresas da API");
       const response = await fetch("/api/companies");
       if (response.ok) {
         const data = await response.json();
-        setCompanies(data);
+        console.log(
+          "🔄 Hook useCompanies: Empresas recebidas da API:",
+          data.length
+        );
+        setContextCompanies(data);
+      } else {
+        console.error(
+          "🔄 Hook useCompanies: Erro na resposta da API:",
+          response.status
+        );
       }
     } catch (error) {
       console.error("Erro ao buscar empresas:", error);
@@ -222,12 +282,23 @@ export function useCompanies() {
 
   // Carregar empresas na inicialização
   useEffect(() => {
+    console.log("🔄 Hook useCompanies: Carregando empresas na inicialização");
     fetchCompanies();
   }, []);
 
+  // Recarregar empresas quando o contexto estiver vazio
+  useEffect(() => {
+    if (contextCompanies.length === 0 && localCompanies.length === 0) {
+      console.log(
+        "🔄 Hook useCompanies: Recarregando empresas (contexto vazio)"
+      );
+      fetchCompanies();
+    }
+  }, [contextCompanies.length, localCompanies.length]);
+
   return {
     companies,
-    setCompanies,
+    setCompanies: setContextCompanies,
     inactiveCompanies,
     inactiveCompaniesFilter,
     setInactiveCompaniesFilter,

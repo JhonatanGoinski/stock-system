@@ -47,6 +47,7 @@ export function DashboardContent({
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [editingCustomer, setEditingCustomer] =
     useState<CustomerWithDetails | null>(null);
+  const [editingCompany, setEditingCompany] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteType, setDeleteType] = useState<
     "product" | "customer" | "sale" | null
@@ -78,12 +79,19 @@ export function DashboardContent({
     INACTIVE_COMPANIES_PAGE_SIZE,
     fetchInactiveCompanies,
     handleReactivateCompany,
+    updateCompany,
+    addCompany,
   } = useCompanies();
 
   // Handlers para modais
   const handleCloseProductForm = () => {
     setShowProductForm(false);
     setEditingProduct(null);
+    // Forçar refresh ao fechar o modal usando a mesma função do botão atualizar
+    console.log("🔄 Modal de produto fechado, forçando refresh");
+    setTimeout(() => {
+      fetchProducts();
+    }, 100);
   };
 
   const handleCloseCustomerForm = () => {
@@ -97,6 +105,7 @@ export function DashboardContent({
 
   const handleCloseCompanyForm = () => {
     setShowCompanyForm(false);
+    setEditingCompany(null);
   };
 
   const handleCloseProductionHistory = () => {
@@ -134,6 +143,12 @@ export function DashboardContent({
         addProduct(newProduct);
       }
     }
+
+    // Forçar refresh após adicionar produto usando a mesma função do botão atualizar
+    console.log("🔄 Forçando refresh após adicionar produto");
+    setTimeout(() => {
+      fetchProducts();
+    }, 100); // Pequeno delay para garantir que o produto foi processado
 
     setIsActionLoading(true);
     setTimeout(() => setIsActionLoading(false), 1000);
@@ -185,10 +200,26 @@ export function DashboardContent({
     setTimeout(() => setIsActionLoading(false), 1000);
   };
 
-  const handleCompanyFormSuccess = () => {
+  const handleCompanyFormSuccess = (updatedCompany?: any) => {
+    console.log("🔄 handleCompanyFormSuccess chamado com:", updatedCompany);
+    console.log("🔄 editingCompany:", editingCompany);
     handleCloseCompanyForm();
+
+    // Se temos uma empresa atualizada, adicionar/atualizar no estado local
+    if (updatedCompany) {
+      console.log("🔄 Atualizando empresa no estado local:", updatedCompany);
+      if (editingCompany) {
+        // Atualizar empresa existente
+        console.log("🔄 Atualizando empresa existente");
+        updateCompany(updatedCompany);
+      } else {
+        // Adicionar nova empresa
+        console.log("🔄 Adicionando nova empresa");
+        addCompany(updatedCompany);
+      }
+    }
+
     setIsActionLoading(true);
-    triggerRefresh();
     setTimeout(() => setIsActionLoading(false), 1000);
   };
 
@@ -249,6 +280,11 @@ export function DashboardContent({
   };
 
   const handleAddCompany = () => {
+    setShowCompanyForm(true);
+  };
+
+  const handleEditCompany = (company: any) => {
+    setEditingCompany(company);
     setShowCompanyForm(true);
   };
 
@@ -359,6 +395,7 @@ export function DashboardContent({
                 onDeleteProduct={handleDeleteProduct}
                 onShowProductionHistory={handleShowProductionHistory}
                 onShowInactiveCompanies={handleShowInactiveCompanies}
+                onEditCompany={handleEditCompany}
                 showProductionHistory={showProductionHistory}
                 selectedProductForHistory={selectedProductForHistory}
                 onCloseProductionHistory={handleCloseProductionHistory}
@@ -398,6 +435,7 @@ export function DashboardContent({
               onDeleteProduct={handleDeleteProduct}
               onShowProductionHistory={handleShowProductionHistory}
               onShowInactiveCompanies={handleShowInactiveCompanies}
+              onEditCompany={handleEditCompany}
               showProductionHistory={showProductionHistory}
               selectedProductForHistory={selectedProductForHistory}
               onCloseProductionHistory={handleCloseProductionHistory}
@@ -434,6 +472,7 @@ export function DashboardContent({
         selectedProductForHistory={selectedProductForHistory}
         editingProduct={editingProduct}
         editingCustomer={editingCustomer}
+        editingCompany={editingCompany}
         itemToDelete={itemToDelete}
         deleteType={deleteType}
         inactiveCompanies={inactiveCompanies}

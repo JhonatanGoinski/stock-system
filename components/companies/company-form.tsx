@@ -22,7 +22,7 @@ interface Company {
 
 interface CompanyFormProps {
   company?: Company;
-  onSuccess: () => void;
+  onSuccess: (updatedCompany?: Company) => void;
   onCancel: () => void;
 }
 
@@ -123,7 +123,9 @@ export function CompanyForm({
       });
 
       if (response.ok) {
-        onSuccess();
+        const result = await response.json();
+        console.log("✅ Empresa salva/atualizada, resultado:", result);
+        onSuccess(result);
       } else {
         const errorData = await response.json();
         alert(errorData.error || "Erro ao salvar empresa");
