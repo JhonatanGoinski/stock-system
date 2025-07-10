@@ -13,6 +13,7 @@ import { MobileNav } from "@/components/shared/mobile-nav";
 import { Dialog, DialogContent } from "@/components/shared/ui/dialog";
 import { useState, useEffect } from "react";
 import { Button } from "@/components/shared/ui/button";
+import { Badge } from "@/components/shared/ui/badge";
 import { useSession, signOut } from "next-auth/react";
 import {
   DropdownMenu,
@@ -204,6 +205,76 @@ export function MobileHeader({ activeTab, onTabChange }: MobileHeaderProps) {
         open={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {/* Dialog de estoque baixo */}
+      <Dialog open={showLowStockDialog} onOpenChange={setShowLowStockDialog}>
+        <DialogContent className="w-[95vw] max-w-md max-h-[80vh] overflow-y-auto">
+          <h2 className="text-lg font-bold mb-2 flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-yellow-500" />
+            {selectedCompany
+              ? `${selectedCompany.name} - Produtos com Estoque Baixo`
+              : "Empresas com Estoque Baixo"}
+          </h2>
+          {lowStockCompanies.length === 0 ? (
+            <p className="text-muted-foreground">
+              Nenhuma empresa com estoque baixo.
+            </p>
+          ) : selectedCompany ? (
+            <div className="max-h-60 overflow-y-auto">
+              <div className="mb-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleBackToCompanies}
+                  className="mb-3"
+                >
+                  ← Voltar para empresas
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {selectedCompany.products.map(
+                  (product: any, prodIdx: number) => (
+                    <div
+                      key={prodIdx}
+                      className="flex items-center justify-between text-sm bg-muted/50 p-2 rounded"
+                    >
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {product.category} • {product.stockQuantity} em
+                          estoque
+                        </p>
+                      </div>
+                      <Badge variant="destructive" className="text-xs">
+                        {product.stockQuantity === 0
+                          ? "Sem estoque"
+                          : "Estoque baixo"}
+                      </Badge>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="max-h-60 overflow-y-auto">
+              {lowStockCompanies.map((company, idx) => (
+                <div
+                  key={idx}
+                  className="mb-4 border-b last:border-0 pb-4 cursor-pointer hover:bg-muted/50 p-2 rounded"
+                  onClick={() => handleCompanyClick(company)}
+                >
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold">{company.name}</h3>
+                    <Badge variant="destructive" className="text-xs">
+                      {company.count} produtos
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Confirmação de Logout */}
       <ConfirmDialog
